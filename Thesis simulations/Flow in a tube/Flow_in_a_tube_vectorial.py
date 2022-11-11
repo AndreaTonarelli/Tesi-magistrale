@@ -126,7 +126,7 @@ def Pressure_Poisson(p, ut, vt, gamma, nx, ny, hx, hy, dt, beta, max_iterations,
             print('vt', np.transpose(vt))
 
         # Estimate the error
-        epsilon = np.abs(p[1:-1, 1:-1] - gamma[1:-1, 1:-1] * (delta - S))
+        epsilon = np.absolute(p[1:-1, 1:-1] - gamma[1:-1, 1:-1] * (delta - S))
         epsilon = np.sum(epsilon) / (nx*ny)
 
         # Check the error
