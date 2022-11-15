@@ -14,7 +14,7 @@ T = 25+273.15   # K
 
 Lx = 3.0        # m
 Ly = 1.0        # m
-nx = 100
+nx = 50
 ny = 26
 nu = 5e-5       # m^2/s  (diffusion coeff)
 u_in = 0.5      # m/s    (inlet velocity)
@@ -418,7 +418,7 @@ for it in range(1, nsteps+1):
 # Field reconstruction
 uu = node_interp(u, 'u', nx, ny, flagu)
 vv = node_interp(v, 'v', nx, ny, flagv)
-pp = node_interp(p, 'p', nx, ny, flagp)
+pp = node_interp(p, 'p', nx, ny, flagp) + 1
 
 uu[xs1-1:xe1+1, ys1-1:ye1+1] = 0         # Obstacle 1
 vv[xs1-1:xe1+1, ys1-1:ye1+1] = 0

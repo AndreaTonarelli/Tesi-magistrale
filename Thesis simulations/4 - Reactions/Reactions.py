@@ -4,6 +4,8 @@ import matplotlib.animation as animation
 from   matplotlib import cm
 from   matplotlib.patches import Rectangle
 from   numba import njit
+from   functions import *
+plt.style.use(['science', 'no-latex'])
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     PRE-PROCESSING                                           ##
@@ -14,12 +16,12 @@ T = 25+273.15      # K
 
 Lx = 3.0           # m
 Ly = 1.0           # m
-nx = 150
-ny = 60
-nu = 5e-5          # m2/s  (dynamic viscosity of fluid)
-Gamma = 1e-5       # m2/s  (diffusion coefficient of O2 in water)
-u_in = 0.1         # m/s    (inlet velocity)
-tau = 10.0         # s      (simulation time)
+nx = 120
+ny = 36
+nu = 5e-4          # m2/s  (dynamic viscosity of fluid)
+Gamma = 1e-4       # m2/s  (diffusion coefficient of O2 in water)
+u_in = 0.5         # m/s   (inlet velocity)
+tau = 100.0         # s     (simulation time)
 method = 'Upwind'  # Discretization method (CDS or Upwind)
 
 # Boundary conditions (no-slip)
@@ -31,10 +33,15 @@ vw = 0             # m/s
 # Inlet concentrations
 cO2in = 0.1       # kmol/m3
 
+# Immobilized cells parameters
+cB0 = 0.01        # kmol/m3
+thick = 0.05      # m (thickness of cells layer)
+k = 1             # m3/kmol/s (reaction constant) -> r = k*cO2*cB
+
 # Parameters for SOR (Poisson eq)
 max_iterations = 1000000
 beta = 1.8
-max_error = 5e-5
+max_error = 1e-5
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     DATA PROCESSING                                          ##
@@ -50,56 +57,80 @@ hy = Ly / ny
 x = np.linspace(0, Lx, nx+1)
 y = np.linspace(0, Ly, ny+1)
 
+# Find cells corresponding to thickness
+th = int(np.ceil(thick/hx))    # it finds the index not the positions!
+
 # Obstacle coordinates
 # Obstacle 1
-x_obst1_start = 0.
-x_obst1_end = 0.8
+x_obst1_start = 0.7
+x_obst1_end = 1.0
 y_obst1_start = 0.
-y_obst1_end = 0.2
+y_obst1_end = 0.3
 # Obstacle 2
-x_obst2_start = 0.
-x_obst2_end = 0.8
-y_obst2_start = 0.8
+x_obst2_start = 0.7
+x_obst2_end = 1.0
+y_obst2_start = 0.7
 y_obst2_end = 1
 # Obstacle 3
-x_obst3_start = 2.2
-x_obst3_end = 3.0
+x_obst3_start = 1.6
+x_obst3_end = 1.9
 y_obst3_start = 0.
-y_obst3_end = 0.3
+y_obst3_end = 0.2
 # Obstacle 4
-x_obst4_start = 2.2
-x_obst4_end = 3.0
-y_obst4_start = 0.7
+x_obst4_start = 1.6
+x_obst4_end = 1.9
+y_obst4_start = 0.8
 y_obst4_end = 1.0
+# Obstacle 5
+x_obst5_start = 2.7
+x_obst5_end = 3.0
+y_obst5_start = 0.
+y_obst5_end = 0.3
+# Obstacle 6
+x_obst6_start = 2.7
+x_obst6_end = 3.0
+y_obst6_start = 0.7
+y_obst6_end = 1.0
 
 # Obstacles definition: rectangle with base xs:xe and height ys:ye
+# Obstacle 1
 xs1 = np.where(x <= x_obst1_start)[0][-1] + 1
 xe1 = np.where(x < x_obst1_end)[0][-1] + 1
 ys1 = np.where(y <= y_obst1_start)[0][-1] + 1
 ye1 = np.where(y < y_obst1_end)[0][-1] + 1
-
+# Obstacle 2
 xs2 = np.where(x <= x_obst2_start)[0][-1] + 1
 xe2 = np.where(x < x_obst2_end)[0][-1] + 1
 ys2 = np.where(y <= y_obst2_start)[0][-1] + 1
 ye2 = np.where(y < y_obst2_end)[0][-1] + 1
-
+# Obstacle 3
 xs3 = np.where(x <= x_obst3_start)[0][-1] + 1
 xe3 = np.where(x < x_obst3_end)[0][-1] + 1
 ys3 = np.where(y <= y_obst3_start)[0][-1] + 1
 ye3 = np.where(y < y_obst3_end)[0][-1] + 1
-
+# Obstacle 4
 xs4 = np.where(x <= x_obst4_start)[0][-1] + 1
 xe4 = np.where(x < x_obst4_end)[0][-1] + 1
 ys4 = np.where(y <= y_obst4_start)[0][-1] + 1
 ye4 = np.where(y < y_obst4_end)[0][-1] + 1
+# Obstacle 5
+xs5 = np.where(x <= x_obst5_start)[0][-1] + 1
+xe5 = np.where(x < x_obst5_end)[0][-1] + 1
+ys5 = np.where(y <= y_obst5_start)[0][-1] + 1
+ye5 = np.where(y < y_obst5_end)[0][-1] + 1
+# Obstacle 6
+xs6 = np.where(x <= x_obst6_start)[0][-1] + 1
+xe6 = np.where(x < x_obst6_end)[0][-1] + 1
+ys6 = np.where(y <= y_obst6_start)[0][-1] + 1
+ye6 = np.where(y < y_obst6_end)[0][-1] + 1
 
 # Inlet section (west side)
 nin_start = 1        # first cell index (pay attention!)
 nin_end = ny + 1     # last cell index (pay attention!)
 
 # Outlet section (east side)
-nout_start = 2        # first cell index (pay attention!)
-nout_end = ny + 1     # last cell index (pay attention!)
+nout_start = ye5 + 1     # first cell index (pay attention!)
+nout_end = ys6 - 1       # last cell index (pay attention!)
 
 # Time step
 sigma = 0.75                                       # safety factor for time step (stability)
@@ -128,7 +159,7 @@ u   = np.zeros([nx+1, ny+2])
 v   = np.zeros([nx+2, ny+1])
 p   = np.zeros([nx+2, ny+2])
 cO2 = np.zeros([nx+2, ny+2])
-cBI = np.zeros([nx+2, ny+2])
+cB  = np.zeros([nx+2, ny+2])
 
 # Temporary velocity fields
 ut = np.zeros_like(u)
@@ -139,7 +170,7 @@ uu   = np.zeros([nx+1, ny+1])
 vv   = np.zeros([nx+1, ny+1])
 pp   = np.zeros([nx+1, ny+1])
 ccO2 = np.zeros([nx+1, ny+1])
-ccBI = np.zeros([nx+1, ny+1])
+ccB  = np.zeros([nx+1, ny+1])
 
 # Coefficients for pressure equation
 gamma = np.zeros([nx+2,ny+2]) + hx*hy / (2*hx**2 + 2*hy**2)   # internal points
@@ -158,37 +189,53 @@ gamma[-2, nout_start-1]            = hx*hy / (  hx**2 + 2*hy**2)    # Corners of
 gamma[-2, nout_end-1]              = hx*hy / (  hx**2 + 2*hy**2)
 
 # Correction of gamma close to the obstacles
-gamma[xs1-1, ys1:ye1+1] = hx*hy / (2*hx**2 +   hy**2)         # Obstacle 1
+# Obstacle 1
+gamma[xs1-1, ys1:ye1+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xe1+1, ys1:ye1+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xs1:xe1+1, ys1-1] = hx*hy / (  hx**2 + 2*hy**2)
 gamma[xs1:xe1+1, ye1+1] = hx*hy / (  hx**2 + 2*hy**2)
-
-gamma[xs2-1, ys2:ye2+1] = hx*hy / (2*hx**2 +   hy**2)         # Obstacle 2
+# Obstacle 2
+gamma[xs2-1, ys2:ye2+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xe2+1, ys2:ye2+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xs2:xe2+1, ys2-1] = hx*hy / (  hx**2 + 2*hy**2)
 gamma[xs2:xe2+1, ye2+1] = hx*hy / (  hx**2 + 2*hy**2)
-
-gamma[xs3-1, ys3:ye3+1] = hx*hy / (2*hx**2 +   hy**2)         # Obstacle 3
+# Obstacle 3
+gamma[xs3-1, ys3:ye3+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xe3+1, ys3:ye3+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xs3:xe3+1, ys3-1] = hx*hy / (  hx**2 + 2*hy**2)
 gamma[xs3:xe3+1, ye3+1] = hx*hy / (  hx**2 + 2*hy**2)
-
-gamma[xs4-1, ys4:ye4+1] = hx*hy / (2*hx**2 +   hy**2)         # Obstacle 4
+# Obstacle 4
+gamma[xs4-1, ys4:ye4+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xe4+1, ys4:ye4+1] = hx*hy / (2*hx**2 +   hy**2)
 gamma[xs4:xe4+1, ys4-1] = hx*hy / (  hx**2 + 2*hy**2)
 gamma[xs4:xe4+1, ye4+1] = hx*hy / (  hx**2 + 2*hy**2)
+# Obstacle 5
+gamma[xs5-1, ys5:ye5+1] = hx*hy / (2*hx**2 +   hy**2)
+gamma[xe5+1, ys5:ye5+1] = hx*hy / (2*hx**2 +   hy**2)
+gamma[xs5:xe5+1, ys5-1] = hx*hy / (  hx**2 + 2*hy**2)
+gamma[xs5:xe5+1, ye5+1] = hx*hy / (  hx**2 + 2*hy**2)
+# Obstacle 6
+gamma[xs6-1, ys6:ye6+1] = hx*hy / (2*hx**2 +   hy**2)
+gamma[xe6+1, ys6:ye6+1] = hx*hy / (2*hx**2 +   hy**2)
+gamma[xs6:xe6+1, ys6-1] = hx*hy / (  hx**2 + 2*hy**2)
+gamma[xs6:xe6+1, ye6+1] = hx*hy / (  hx**2 + 2*hy**2)
 
 # Correction of gamma close to the obstacles edges
-gamma[xs1, ye1+1] = hx*hy / (hx**2 + hy**2)                  # Obstacle 1
+gamma[xs1-1, ys1] = hx*hy / (hx**2 + hy**2)          # Obstacle 1
 gamma[xe1+1, ys1] = hx*hy / (hx**2 + hy**2)
 
-gamma[xs2, ys2-1] = hx*hy / (hx**2 + hy**2)                  # Obstacle 2
+gamma[xs2-1, ye2] = hx*hy / (hx**2 + hy**2)          # Obstacle 2
 gamma[xe2+1, ye2] = hx*hy / (hx**2 + hy**2)
 
-gamma[xs3-1, ys3] = hx*hy / (hx**2 + hy**2)                  # Obstacle 3
+gamma[xs3-1, ys3] = hx*hy / (hx**2 + hy**2)          # Obstacle 3
+gamma[xe3-1, ys3] = hx*hy / (hx**2 + hy**2)
 
-gamma[xs4-1, ye4] = hx*hy / (hx**2 + hy**2)                  # Obstacle 4
+gamma[xs4-1, ye4] = hx*hy / (hx**2 + hy**2)          # Obstacle 4
+gamma[xe4-1, ye4] = hx*hy / (hx**2 + hy**2)
 
+gamma[xs5-1, ys5] = hx*hy / (hx**2 + hy**2)          # Obstacle 5
+
+gamma[xe6-1, ys6] = hx*hy / (hx**2 + hy**2)          # Obstacle 6
 
 # Flags to recognize where is necessary to solve the equations
 # This flag is 1 in the cells that contain and obstacle and 0 in the others
@@ -213,262 +260,34 @@ flagu[xs4-1:xe4+1, ys4:ye4+1] = 1       # Obstacle 4
 flagv[xs4:xe4+1, ys4-1:ye4+1] = 1
 flagp[xs4:xe4+1, ys4:ye4+1] = 1
 
+flagu[xs5-1:xe5+1, ys5:ye5+1] = 1       # Obstacle 5
+flagv[xs5:xe5+1, ys5-1:ye5+1] = 1
+flagp[xs5:xe5+1, ys5:ye5+1] = 1
+
+flagu[xs6-1:xe6+1, ys6:ye6+1] = 1       # Obstacle 6
+flagv[xs6:xe6+1, ys6-1:ye6+1] = 1
+flagp[xs6:xe6+1, ys6:ye6+1] = 1
+
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
 u[:, :] = 0.5                      # Internal points: fixed velocity [m/s]
 u[xs1-1:xe1+1, ys1:ye1+1] = 0      # Obstacle 1
 u[xs2-1:xe2+1, ys2:ye2+1] = 0      # Obstacle 2
 u[xs3-1:xe3+1, ys3:ye3+1] = 0      # Obstacle 3
 u[xs4-1:xe4+1, ys4:ye4+1] = 0      # Obstacle 4
+u[xs5-1:xe5+1, ys5:ye5+1] = 0      # Obstacle 5
+u[xs6-1:xe6+1, ys6:ye6+1] = 0      # Obstacle 6
 ut = u
-
-## -------------------------------------------------------------------------------------------- ##
-##                                         FUNCTIONS                                            ##
-## -------------------------------------------------------------------------------------------- ##
-# Poisson equation solver
-@njit
-def Pressure_Poisson(p, ut, vt, gamma, nx, ny, hx, hy, dt, beta, max_iterations, max_error, flagp):
-
-    for iter in range(1,max_iterations+1):
-
-        for i in range(1,nx+1):
-            for j in range(1,ny+1):
-                if flagp[i,j] == 0:
-
-                    delta = (p[i+1, j] + p[i-1,j])*hy/hx + (p[i, j+1] + p[i, j-1])*hx/hy
-                    S = (1/dt) * ( (ut[i, j] - ut[i-1, j])*hy + (vt[i, j] - vt[i, j-1])*hx )
-                    p[i, j] = beta * gamma[i, j] * (delta - S) + (1-beta) * p[i, j]
-        
-        # Estimate the error
-        epsilon = 0.0
-        for i in range(1,nx+1):
-            for j in range(1,ny+1):
-                if flagp[i,j] == 0:
-
-                    delta = (p[i+1, j] + p[i-1,j])*hy/hx + (p[i, j+1] + p[i, j-1])*hx/hy
-                    S = (1/dt) * ( (ut[i, j] - ut[i-1, j])*hy + (vt[i, j] - vt[i, j-1])*hx )
-                    epsilon = epsilon + np.absolute( p[i, j] - gamma[i, j] * (delta - S) )
-
-        epsilon = epsilon / (nx*ny)
-
-        # Check the error and stop if converged
-        if epsilon <= max_error:
-            break
-
-    return p , iter
-
-# Advection diffusion equation
-@njit
-def AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, flagu, flagv, method):
-
-    # Temporary u-velocity
-    for i in range(1, nx):
-        for j in range(1, ny+1):
-            if flagu[i,j] == 0:
-
-            # Upwind
-                if method == 'Upwind':
-                    flux_e = (u[i+1,j] + u[i,j]) / 2
-                    flux_w = (u[i,j] + u[i-1,j]) / 2
-                    flux_n = (v[i,j] + v[i+1,j]) / 2
-                    flux_s = (v[i,j-1] + v[i+1,j-1]) / 2
-
-                    if flux_e > 0: ufe = u[i,j]
-                    else: ufe = u[i+1,j]
-                    if flux_w > 0: ufw = u[i-1,j]
-                    else: ufw = u[i,j]
-                    if flux_n > 0: ufn = u[i,j]
-                    else: ufn = u[i,j+1]
-                    if flux_s > 0: ufs = u[i,j-1]
-                    else: ufs = u[i,j]
-
-                    ue2 = ufe**2 * hy
-                    uw2 = ufw**2 * hy
-                    unv = flux_n * ufn * hx
-                    usv = flux_s * ufs * hx
-
-                # Centered Differencing Scheme
-                if method == 'CDS':
-                    ue2 = ((u[i+1, j] + u[i, j]) / 2)**2 * hy
-                    uw2 = ((u[i, j] + u[i-1, j]) / 2)**2 * hy
-                    unv = ((u[i, j+1] + u[i, j]) / 2) * ((v[i, j] + v[i+1, j]) / 2) * hx
-                    usv = ((u[i, j] + u[i, j-1]) / 2) * ((v[i, j-1] + v[i+1, j-1]) / 2) * hx
-
-                H = hx*hy
-                A = (ue2 - uw2 + unv - usv) / H
-
-                De = nu * (u[i+1, j] - u[i, j]) * hy/hx
-                Dw = nu * (u[i, j] - u[i-1, j]) * hy/hx
-                Dn = nu * (u[i, j+1] - u[i, j]) * hx/hy
-                Ds = nu * (u[i, j] - u[i, j-1]) * hx/hy
-
-                D = (De - Dw + Dn - Ds) / H
-
-                ut[i, j] = u[i, j] + dt*(-A + D)
-
-    # Temporary v-velocity
-    for i in range(1, nx+1):
-        for j in range(1, ny):
-            if flagv[i,j] == 0:
-
-                # Upwind
-                if method == 'Upwind':
-                    flux_e = (u[i,j+1] + u[i,j]) / 2
-                    flux_w = (u[i-1,j+1] + u[i-1,j]) / 2
-                    flux_n = (v[i,j+1] + v[i,j]) / 2
-                    flux_s = (v[i,j] + v[i,j-1]) / 2
-
-                    if flux_e > 0: vfe = v[i,j]
-                    else: vfe = v[i+1,j]
-                    if flux_w > 0: vfw = v[i-1,j]
-                    else: vfw = v[i,j]
-                    if flux_n > 0: vfn = v[i,j]
-                    else: vfn = v[i,j+1]
-                    if flux_s > 0: vfs = v[i,j-1]
-                    else: vfs = v[i,j]
-
-                    vn2 = vfn**2 * hx
-                    vs2 = vfs**2 * hx
-                    veu = flux_e * vfe * hy
-                    vwu = flux_w * vfw * hy
-
-                # Centered Differencing Scheme
-                if method == 'CDS':
-                    vn2 = ((v[i, j+1] + v[i, j]) / 2)**2 * hx
-                    vs2 = ((v[i, j] + v[i, j-1]) / 2)**2 * hx
-                    veu = ((v[i+1, j] + v[i, j]) / 2) * ((u[i, j] + u[i, j+1]) / 2) * hy
-                    vwu = ((v[i, j] + v[i-1, j]) / 2) * ((u[i-1, j] + u[i-1, j+1]) / 2) * hy
-
-                H = hx*hy
-                A = (vn2 - vs2 + veu - vwu) / H
-
-                De = nu * (v[i+1, j] - v[i, j]) * hy/hx
-                Dw = nu * (v[i, j] - v[i-1, j]) * hy/hx
-                Dn = nu * (v[i, j+1] - v[i, j]) * hx/hy
-                Ds = nu * (v[i, j] - v[i, j-1]) * hx/hy
-
-                D = (De - Dw + Dn - Ds) / H
-
-                vt[i, j] = v[i, j] + dt*(-A + D)
-
-    return ut, vt
-
-@njit
-def AdvDiffSpecies(phi, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method):
-    
-    phio = phi
-    for i in range(1, nx+1):
-        for j in range(1, ny+1):
-            if flagp[i,j] == 0:
-
-                ue = u[i, j]
-                uw = u[i-1, j]
-                vn = v[i, j]
-                vs = v[i, j-1]
-
-                # Centered Differencing Scheme
-                if method == 'CDS':
-                    phi_e = ( phio[i+1, j] + phio[i, j] ) / 2
-                    phi_w = ( phio[i, j] + phio[i-1, j] ) / 2
-                    phi_n = ( phio[i, j+1] + phio[i, j] ) / 2
-                    phi_s = ( phio[i, j] + phio[i, j-1] ) / 2
-                
-                # Upwind
-                if method == 'Upwind':
-                    if vn > 0: phi_n = phio[i, j]
-                    else: phi_n = phio[i, j+1]
-                    if vs > 0: phi_s = phio[i, j-1]
-                    else: phi_s = phio[i, j]
-                    if ue > 0: phi_e = phio[i, j]
-                    else: phi_e = phio[i+1, j]
-                    if uw > 0: phi_w = phio[i-1, j]
-                    else: phi_w = phio[i, j]
-
-                A = (ue*phi_e - uw*phi_w)*hy + (vn*phi_n - vs*phi_s)*hx
-
-                dphi_e = ( phio[i+1, j] - phio[i, j] )
-                dphi_w = ( phio[i, j] - phio[i-1, j] )
-                dphi_n = ( phio[i, j+1] - phio[i, j] )
-                dphi_s = ( phio[i, j] - phio[i, j-1] )
-
-                D = Gamma * ( (dphi_e - dphi_w)*hx/hy + (dphi_n - dphi_s)*hy/hx )
-
-                phi[i, j] = phio[i, j] + dt/(hx*hy) * (-A + D)
-
-    return phi
-
-def SpeciesBCs(phi, nx,ny, xs1,xe1,ys1,ye1, xs2,xe2,ys2,ye2, xs3,xe3,ys3,ye3, xs4,xe4,ys4,ye4):
-
-    # Entire domain BCs (Dirichlet)
-    phi[1:-1, 1] = phi[1:-1, 2];           # South wall
-    phi[1:-1, -1] = phi[1:-1, -2];         # North wall
-    phi[1, 1:-1] = phi[2, 1:-1];           # West wall
-    phi[-1, 1:-1] = phi[-2, 1:-1];         # East wall
-
-    # 1st Obstacle BCS (Dirichlet)
-    phi[xs1:xe1+1, ys1] = phi[xs1:xe1+1, ys1-1];     # South wall
-    phi[xs1:xe1+1, ye1] = phi[xs1:xe1+1, ye1+1];     # North wall
-    phi[xs1, ys1:ye1+1] = phi[xs1-1, ys1:ye1+1];     # West wall
-    phi[xe1, ys1:ye1+1] = phi[xe1+1, ys1:ye1+1];     # East wall
-
-    # 2nd Obstacle BCS (Dirichlet)
-    phi[xs2:xe2+1, ys2] = phi[xs2:xe2+1, ys2-1];     # South wall
-    phi[xs2:xe2+1, ye2] = phi[xs2:xe2+1, ye2+1];     # North wall
-    phi[xs2, ys2:ye2+1] = phi[xs2-1, ys2:ye2+1];     # West wall
-    phi[xe2, ys2:ye2+1] = phi[xe2+1, ys2:ye2+1];     # East wall
-
-    # 3rd Obstacle BCS (Dirichlet)
-    phi[xs3:xe3+1, ys3] = phi[xs3:xe3+1, ys3-1];     # South wall
-    phi[xs3:xe3+1, ye3] = phi[xs3:xe3+1, ye3+1];     # North wall
-    phi[xs3, ys3:ye3+1] = phi[xs3-1, ys3:ye3+1];     # West wall
-    phi[xe3, ys3:ye3+1] = phi[xe3+1, ys3:ye3+1];     # East wall
-
-    # 4th Obstacle BCS (Dirichlet)
-    phi[xs4:xe4+1, ys4] = phi[xs4:xe4+1, ys4-1];     # South wall
-    phi[xs4:xe4+1, ye4] = phi[xs4:xe4+1, ye4+1];     # North wall
-    phi[xs4, ys4:ye4+1] = phi[xs4-1, ys4:ye4+1];     # West wall
-    phi[xe4, ys4:ye4+1] = phi[xe4+1, ys4:ye4+1];     # East wall
-
-    return phi
-
-@njit
-def node_interp(f, grid, nx, ny, flag):
-
-    fnode = np.zeros((nx+1, ny+1))
-
-    if grid == 'u':
-        for i in range(nx+1):
-            for j in range(ny+1):
-                if flag[i,j] == 0:
-                        fnode[i,j] = (f[i,j] + f[i, j+1]) / 2
-
-    if grid == 'v':
-        for i in range(nx+1):
-            for j in range(ny+1):
-                if flag[i,j] == 0:
-                        fnode[i,j] = (f[i,j] + f[i+1, j]) / 2
-
-    if grid == 'p':
-        for i in range(nx+1):
-            for j in range(ny+1):
-                if flag[i,j] == 0:
-                        fnode[i,j] = (f[i,j] + f[i+1,j] + f[i,j+1] + f[i+1,j+1]) / 4
-
-    return fnode
-
-@njit
-def correction_velocity(u, v, ut, vt, p, nx, ny, hx, hy, flagu, flagv):
-
-    for i in range(1, nx):
-        for j in range(1, ny+1):
-            if flagu[i,j] == 0:
-                u[i, j] = ut[i, j] - (dt/hx) * (p[i+1, j] - p[i, j])
-
-    for i in range(1, nx+1):
-        for j in range(1, ny):
-            if flagv[i,j] == 0:
-                v[i, j] = vt[i, j] - (dt/hy) * (p[i, j+1] - p[i, j])
-
-    return u, v
+# Immobilized cells initialized over obstacles
+cB[xs1-th:xs1, ys1:ye1] = cB0    # Obstacle 1
+cB[xe1+1:xe1+th+1, ys1:ye1] = cB0
+cB[xs2-th:xs2+1, ys2:ye2] = cB0    # Obstacle 2
+cB[xe2+1:xe2+th+1, ys2:ye2] = cB0
+cB[xs3-th:xs3, ys3:ye3] = cB0    # Obstacle 3
+cB[xe3+1:xe3+th+1, ys3:ye3] = cB0
+cB[xs4-th:xs4, ys4:ye4] = cB0    # Obstacle 4
+cB[xe4+1:xe4+th+1, ys4:ye4] = cB0
+cB[xs5-th:xs5, ys5:ye5] = cB0    # Obstacle 5
+cB[xs6-th:xs6, ys6:ye6] = cB0    # Obstacle 6
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     SOLUTION OVER TIME                                       ##
@@ -487,25 +306,36 @@ for it in range(1, nsteps+1):
 
     # Boundary conditions (obstacles)
     uwall = 0
+    # Obstacle 1
     u[xs1-1:xe1+1, ye1] = 2*uwall - u[xs1-1:xe1+1, ye1+1]    # north face
     u[xs1-1:xe1+1, ys1] = 2*uwall - u[xs1-1:xe1+1, ys1-1]    # south face
     v[xs1, ys1-1:ye1+1] = 2*uwall - v[xs1-1, ys1-1:ye1+1]    # west  face
     v[xe1, ys1-1:ye1+1] = 2*uwall - v[xe1+1, ys1-1:ye1+1]    # east  face
-
+    # Obstacle 2
     u[xs2-1:xe2+1, ye2] = 2*uwall - u[xs2-1:xe2+1, ye2+1]    # north face
     u[xs2-1:xe2+1, ys2] = 2*uwall - u[xs2-1:xe2+1, ys2-1]    # south face
     v[xs2, ys2-1:ye2+1] = 2*uwall - v[xs2-1, ys2-1:ye2+1]    # west  face
     v[xe2, ys2-1:ye2+1] = 2*uwall - v[xe2+1, ys2-1:ye2+1]    # east  face
-
+    # Obstacle 3
     u[xs3-1:xe3+1, ye3] = 2*uwall - u[xs3-1:xe3+1, ye3+1]    # north face
     u[xs3-1:xe3+1, ys3] = 2*uwall - u[xs3-1:xe3+1, ys3-1]    # south face
     v[xs3, ys3-1:ye3+1] = 2*uwall - v[xs3-1, ys3-1:ye3+1]    # west  face
     v[xe3, ys3-1:ye3+1] = 2*uwall - v[xe3+1, ys3-1:ye3+1]    # east  face
-
+    # Obstacle 4
     u[xs4-1:xe4+1, ye4] = 2*uwall - u[xs4-1:xe4+1, ye4+1]    # north face
     u[xs4-1:xe4+1, ys4] = 2*uwall - u[xs4-1:xe4+1, ys4-1]    # south face
     v[xs4, ys4-1:ye4+1] = 2*uwall - v[xs4-1, ys4-1:ye4+1]    # west  face
     v[xe4, ys4-1:ye4+1] = 2*uwall - v[xe4+1, ys4-1:ye4+1]    # east  face
+    # Obstacle 5
+    u[xs5-1:xe5+1, ye5] = 2*uwall - u[xs5-1:xe5+1, ye5+1]    # north face
+    u[xs5-1:xe5+1, ys5] = 2*uwall - u[xs5-1:xe5+1, ys5-1]    # south face
+    v[xs5, ys5-1:ye5+1] = 2*uwall - v[xs5-1, ys5-1:ye5+1]    # west  face
+    v[xe5, ys5-1:ye5+1] = 2*uwall - v[xe5+1, ys5-1:ye5+1]    # east  face
+    # Obstacle 6
+    u[xs6-1:xe6+1, ye6] = 2*uwall - u[xs6-1:xe6+1, ye6+1]    # north face
+    u[xs6-1:xe6+1, ys6] = 2*uwall - u[xs6-1:xe6+1, ys6-1]    # south face
+    v[xs6, ys6-1:ye6+1] = 2*uwall - v[xs6-1, ys6-1:ye6+1]    # west  face
+    v[xe6, ys6-1:ye6+1] = 2*uwall - v[xe6+1, ys6-1:ye6+1]    # east  face
 
     # Over-writing inlet conditions
     u[0, nin_start-1:nin_end] = u_in   # fixed inlet velocity
@@ -526,23 +356,27 @@ for it in range(1, nsteps+1):
     p, iter = Pressure_Poisson(p, ut, vt, gamma, nx, ny, hx, hy, dt, beta, max_iterations, max_error, flagp)
 
     # Correction on the velocity
-    u, v = correction_velocity(u, v, ut, vt, p, nx, ny, hx, hy, flagu, flagv)
+    u, v = correction_velocity(u, v, ut, vt, p, nx, ny, hx, hy, dt, flagu, flagv)
 
     # Print on the screen
-    if it % 500 == 1:
+    if it % 100 == 1:
         print('Step:', it, '- Time:', t,  '- Poisson iterations:', iter)
 
     #----------------------------------------------------------------------------------#
-    # 2. Transport of species                                                          #
+    # 2. Transport of species and reaction                                             #
     #----------------------------------------------------------------------------------#
     # Impermeable walls
-    cO2 = SpeciesBCs(cO2, nx, ny, xs1, xe1, ys1, ye1, xs2, xe2, ys2, ye2, xs3, xe3, ys3, ye3, xs4, xe4, ys4, ye4)
+    cO2 = SpeciesBCs(cO2, nx,ny, xs1,xe1,ys1,ye1, xs2,xe2,ys2,ye2, xs3,xe3,ys3,ye3, xs4,xe4,ys4,ye4, xs5,xe5,ys5,ye5, xs6,xe6,ys6,ye6)
 
     # Inlet sections
     cO2[0, nin_start:nin_end+1] = 2*cO2in - cO2[1, nin_start:nin_end+1]
 
     # Advection-Diffusion equation
-    cO2 = AdvDiffSpecies(cO2, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
+    cO2star = AdvDiffSpecies(cO2, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
+    cBstar = cB
+
+    # Reaction step (Linearization + Segregation)
+    cO2, cB = ReactionStep(cO2star, cBstar, dt, k, nx, ny)
 
     # Advance in time
     t = t + dt
@@ -555,86 +389,99 @@ uu   = node_interp(u, 'u', nx, ny, flagu)
 vv   = node_interp(v, 'v', nx, ny, flagv)
 pp   = node_interp(p, 'p', nx, ny, flagp)
 ccO2 = node_interp(cO2, 'p', nx, ny, flagp)
+ccB[xs1-th:xs1, ys1:ye1] = cB[xs1-th+1:xs1+1, ys1+1:ye1+1]  # Obstacle 1
+ccB[xe1+1:xe1+th+1, ys1:ye1] = cB[xe1+1:xe1+th+1, ys1+1:ye1+1]
+ccB[xs2-th:xs2, ys2:ye2] = cB[xs2-th+1:xs2+1, ys2+1:ye2+1]  # Obstacle 2
+ccB[xe2+1:xe2+th+1, ys2:ye2] = cB[xe2+1:xe2+th+1, ys2+1:ye2+1]
+ccB[xs3-th:xs3, ys3:ye3] = cB[xs3-th+1:xs3+1, ys3+1:ye3+1]  # Obstacle 3
+ccB[xe3+1:xe3+th+1, ys3:ye3] = cB[xe3+1:xe3+th+1, ys3+1:ye3+1]
+ccB[xs4-th:xs4, ys4:ye4] = cB[xs4-th+1:xs4+1, ys4+1:ye4+1]  # Obstacle 4
+ccB[xe4+1:xe4+th+1, ys4:ye4] = cB[xe4+1:xe4+th+1, ys4+1:ye4+1]
+ccB[xs5-th:xs5, ys5:ye5] = cB[xs5-th+1:xs5+1, ys5+1:ye5+1]  # Obstacle 5
+ccB[xs6-th:xs6, ys6:ye6] = cB[xs6-th+1:xs6+1, ys6+1:ye6+1]  # Obstacle 6
 
 uu[xs1-1:xe1+1, ys1-1:ye1+1] = 0         # Obstacle 1
 vv[xs1-1:xe1+1, ys1-1:ye1+1] = 0
 pp[xs1-1:xe1+1, ys1-1:ye1+1] = 0
 ccO2[xs1-1:xe1+1, ys1-1:ye1+1] = 0
+ccB[xs1-1:xe1+1, ys1-1:ye1+1] = 0
 uu[xs2-1:xe2+1, ys2-1:ye2+1] = 0         # Obstacle 2
 vv[xs2-1:xe2+1, ys2-1:ye2+1] = 0
 pp[xs2-1:xe2+1, ys2-1:ye2+1] = 0
 ccO2[xs2-1:xe2+1, ys2-1:ye2+1] = 0
+ccB[xs2-1:xe2+1, ys2-1:ye2+1] = 0
 uu[xs3-1:xe3+1, ys3-1:ye3+1] = 0         # Obstacle 3
 vv[xs3-1:xe3+1, ys3-1:ye3+1] = 0
 pp[xs3-1:xe3+1, ys3-1:ye3+1] = 0
 ccO2[xs3-1:xe3+1, ys3-1:ye3+1] = 0
+ccB[xs3-1:xe3+1, ys3-1:ye3+1] = 0
 uu[xs4-1:xe4+1, ys4-1:ye4+1] = 0         # Obstacle 4
 vv[xs4-1:xe4+1, ys4-1:ye4+1] = 0
 pp[xs4-1:xe4+1, ys4-1:ye4+1] = 0
 ccO2[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+ccB[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+uu[xs3-1:xe3+1, ys3-1:ye3+1] = 0         # Obstacle 3
+vv[xs3-1:xe3+1, ys3-1:ye3+1] = 0
+pp[xs3-1:xe3+1, ys3-1:ye3+1] = 0
+ccO2[xs3-1:xe3+1, ys3-1:ye3+1] = 0
+ccB[xs3-1:xe3+1, ys3-1:ye3+1] = 0
+uu[xs4-1:xe4+1, ys4-1:ye4+1] = 0         # Obstacle 4
+vv[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+pp[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+ccO2[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+ccB[xs4-1:xe4+1, ys4-1:ye4+1] = 0
+uu[xs5-1:xe5+1, ys5-1:ye5+1] = 0         # Obstacle 5
+vv[xs5-1:xe5+1, ys5-1:ye5+1] = 0
+pp[xs5-1:xe5+1, ys5-1:ye5+1] = 0
+ccO2[xs5-1:xe5+1, ys5-1:ye5+1] = 0
+ccB[xs5-1:xe5+1, ys5-1:ye5+1] = 0
+uu[xs6-1:xe6+1, ys6-1:ye6+1] = 0         # Obstacle 6
+vv[xs6-1:xe6+1, ys6-1:ye6+1] = 0
+pp[xs6-1:xe6+1, ys6-1:ye6+1] = 0
+ccO2[xs6-1:xe6+1, ys6-1:ye6+1] = 0
+ccB[xs6-1:xe6+1, ys6-1:ye6+1] = 0
 
 # Creating a grid
 xx,yy = np.meshgrid(x,y)
 
+# Defining the obstacles coordinates
+X1 = [xs1, xe1, ys1, ye1]
+X2 = [xs2, xe2, ys2, ye2]
+X3 = [xs3, xe3, ys3, ye3]
+X4 = [xs4, xe4, ys4, ye4]
+X5 = [xs5, xe5, ys5, ye5]
+X6 = [xs6, xe6, ys6, ye6]
+
 # Plotting the results
 # Surface map: pressure
-fig, ax = plt.subplots()
-plt1 = plt.contourf(xx, yy, np.transpose(pp))
-plt.colorbar(plt1)
-ax.add_patch(Rectangle((x[xs1-1], y[ys1-1]), x[xe1-xs1+1], y[ye1-ys1+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs2-1], y[ys2-1]), x[xe2-xs2+1], y[ye2-ys2+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs3-1], y[ys3-1]), x[xe3-xs3+1], y[ye3-ys3+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs4-1], y[ys4-1]), x[xe4-xs4+1], y[ye4-ys4+1], facecolor = 'grey'))
-plt.title('Relative pressure [Pa]')     # Trovare un modo per portarla a P assoluta!!!!!
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
+PlotFunctions(xx, yy, pp, x, y, X1, X2, X3, X4, X5, X6, Lx, Ly, 'Delta Pressure [Pa]', 'x [m]', 'y [m]')
 
 # Surface map: u-velocity
-fig, ax = plt.subplots()
-plt2 = plt.contourf(xx, yy, np.transpose(uu))
-plt.colorbar(plt2)
-ax.add_patch(Rectangle((x[xs1-1], y[ys1-1]), x[xe1-xs1+1], y[ye1-ys1+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs2-1], y[ys2-1]), x[xe2-xs2+1], y[ye2-ys2+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs3-1], y[ys3-1]), x[xe3-xs3+1], y[ye3-ys3+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs4-1], y[ys4-1]), x[xe4-xs4+1], y[ye4-ys4+1], facecolor = 'grey'))
-plt.title('u - velocity [m/s]')
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
+PlotFunctions(xx, yy, uu, x, y, X1, X2, X3, X4, X5, X6, Lx, Ly, 'u - velocity [m/s]', 'x [m]', 'y [m]')
 
 # Surface map: v-velocity
-fig, ax = plt.subplots()
-plt3 = plt.contourf(xx, yy, np.transpose(vv))
-plt.colorbar(plt3)
-ax.add_patch(Rectangle((x[xs1-1], y[ys1-1]), x[xe1-xs1+1], y[ye1-ys1+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs2-1], y[ys2-1]), x[xe2-xs2+1], y[ye2-ys2+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs3-1], y[ys3-1]), x[xe3-xs3+1], y[ye3-ys3+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs4-1], y[ys4-1]), x[xe4-xs4+1], y[ye4-ys4+1], facecolor = 'grey'))
-plt.title('v - velocity [m/s]')
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
+PlotFunctions(xx, yy, vv, x, y, X1, X2, X3, X4, X5, X6, Lx, Ly, 'v - velocity [m/s]', 'x [m]', 'y [m]')
 
 # Surface map: cO2
-fig, ax = plt.subplots()
-plt3 = plt.contourf(xx, yy, np.transpose(ccO2))
-plt.colorbar(plt3)
-ax.add_patch(Rectangle((x[xs1-1], y[ys1-1]), x[xe1-xs1+1], y[ye1-ys1+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs2-1], y[ys2-1]), x[xe2-xs2+1], y[ye2-ys2+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs3-1], y[ys3-1]), x[xe3-xs3+1], y[ye3-ys3+1], facecolor = 'grey'))
-ax.add_patch(Rectangle((x[xs4-1], y[ys4-1]), x[xe4-xs4+1], y[ye4-ys4+1], facecolor = 'grey'))
-plt.title('O2 concentration [kmol/m3]')
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
+PlotFunctions(xx, yy, ccO2, x, y, X1, X2, X3, X4, X5, X6, Lx, Ly, 'O2 concentration [kmol/m3]', 'x [m]', 'y [m]')
+
+# Surface map: cB
+PlotFunctions(xx, yy, ccB, x, y, X1, X2, X3, X4, X5, X6, Lx, Ly, 'Cells concentration [kmol/m3]', 'x [m]', 'y [m]')
 
 # Streamlines
 fig, ax = plt.subplots()
-plt.quiver(xx[::10], yy[::10], np.transpose(uu)[::10], np.transpose(vv)[::10])
+# plt.quiver(xx[::10], yy[::10], np.transpose(uu)[::10], np.transpose(vv)[::10])
 plt.streamplot(xx, yy, np.transpose(uu), np.transpose(vv), linewidth = 1)
 ax.add_patch(Rectangle((x[xs1-1], y[ys1-1]), x[xe1-xs1+1], y[ye1-ys1+1], facecolor = 'grey'))
 ax.add_patch(Rectangle((x[xs2-1], y[ys2-1]), x[xe2-xs2+1], y[ye2-ys2+1], facecolor = 'grey'))
 ax.add_patch(Rectangle((x[xs3-1], y[ys3-1]), x[xe3-xs3+1], y[ye3-ys3+1], facecolor = 'grey'))
 ax.add_patch(Rectangle((x[xs4-1], y[ys4-1]), x[xe4-xs4+1], y[ye4-ys4+1], facecolor = 'grey'))
+ax.add_patch(Rectangle((x[xs5-1], y[ys5-1]), x[xe5-xs5+1], y[ye5-ys5+1], facecolor = 'grey'))
+ax.add_patch(Rectangle((x[xs6-1], y[ys6-1]), x[xe6-xs6+1], y[ye6-ys6+1], facecolor = 'grey'))
 plt.title('Streamlines')
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
+plt.xlim(0,Lx)
+plt.ylim(0,Ly)
 
 plt.show()
