@@ -14,10 +14,10 @@ T = 25+273.15   # K
 
 Lx = 3.0        # m
 Ly = 1.0        # m
-nx = 50
-ny = 26
+nx = 150
+ny = 50
 nu = 5e-5       # m^2/s  (diffusion coeff)
-u_in = 0.5      # m/s    (inlet velocity)
+u_in = 1e-3     # m/s    (inlet velocity)
 tau = 5.0       # s      (simulation time)
 
 # Boundary conditions (no-slip)
@@ -87,7 +87,7 @@ nout_start = 2        # first cell index (pay attention!)
 nout_end = ny + 1     # last cell index (pay attention!)
 
 # Time step
-sigma = 0.5                              # safety factor for time step (stability)
+sigma = 0.1                              # safety factor for time step (stability)
 dt_diff = np.minimum(hx,hy)**2/4/nu      # time step (diffusion stability) [s]
 dt_conv = 4*nu/u_in**2                   # time step (convection stability) [s]
 dt = sigma*np.minimum(dt_diff, dt_conv)  # time step (stability) [s]
@@ -178,7 +178,7 @@ flagv[xs3:xe3+1, ys3-1:ye3+1] = 1
 flagp[xs3:xe3+1, ys3:ye3+1] = 1
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-u[:, :] = 0.5                      # Internal points: fixed velocity [m/s]
+u[:, :] = u_in                     # Internal points: fixed velocity [m/s]
 u[xs1-1:xe1+1, ys1:ye1+1] = 0      # Obstacle 1
 u[xs2-1:xe2+1, ys2:ye2+1] = 0      # Obstacle 2
 u[xs3-1:xe3+1, ys3:ye3+1] = 0      # Obstacle 3
@@ -418,7 +418,7 @@ for it in range(1, nsteps+1):
 # Field reconstruction
 uu = node_interp(u, 'u', nx, ny, flagu)
 vv = node_interp(v, 'v', nx, ny, flagv)
-pp = node_interp(p, 'p', nx, ny, flagp) + 1
+pp = node_interp(p, 'p', nx, ny, flagp)
 
 uu[xs1-1:xe1+1, ys1-1:ye1+1] = 0         # Obstacle 1
 vv[xs1-1:xe1+1, ys1-1:ye1+1] = 0

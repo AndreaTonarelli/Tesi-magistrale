@@ -13,11 +13,11 @@ T = 25+273.15   # K
 
 Lx = 5.0        # m
 Ly = 1.0        # m
-nx = 40
-ny = 20
-nu = 1e-4       # m^2/s  (diffusion coeff)
-u_in = 0.5      # m/s    (inlet velocity)
-tau = 5.0       # s      (simulation time)
+nx = 200
+ny = 40
+nu = 1e-6       # m^2/s  (diffusion coeff)
+u_in = 1e-2     # m/s    (inlet velocity)
+tau = 10.0       # s      (simulation time)
 
 # Boundary conditions (no-slip)
 un = 0          # m/s
@@ -27,8 +27,8 @@ vw = 0          # m/s
 
 # Parameters for SOR (Poisson eq)
 max_iterations = 1000000
-beta = 1.5
-max_error = 1e-5
+beta = 1.8
+max_error = 1e-6
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     DATA PROCESSING                                          ##
@@ -49,7 +49,7 @@ nout_start = 2        # first cell index (pay attention!)
 nout_end = ny + 1     # last cell index (pay attention!)
 
 # Time step
-sigma = 0.7                              # safety factor for time step (stability)
+sigma = 0.01                             # safety factor for time step (stability)
 dt_diff = np.minimum(hx,hy)**2/4/nu      # time step (diffusion stability) [s]
 dt_conv = 4*nu/u_in**2                   # time step (convection stability) [s]
 dt = sigma*np.minimum(dt_diff, dt_conv)  # time step (stability) [s]
@@ -99,7 +99,7 @@ gamma[-2, nout_start-1]            = hx*hy / (  hx**2 + 2*hy**2)    # Corners of
 gamma[-2, nout_end-1]              = hx*hy / (  hx**2 + 2*hy**2)
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-u[:, :] = 0.5
+u[:, :] = 1e-2
 ut = u
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -241,19 +241,19 @@ for it in range(1, nsteps+1):
     v[-1, :] = 2*ve - v[-2, :]   # east wall
 
     # Over-writing inlet conditions
-    u[0, nin_start-1:nin_end] = u_in   # fixed inlet velocity
+    u[0, nin_start-1:nin_end+1] = u_in   # fixed inlet velocity
 
     # Over-writing outlet conditions
-    u[-1, nout_start-1:nout_end] = u[-2, nout_start-1:nout_end]   # zero-gradient outlet velocity
-    v[-1, nout_start-1:nout_end] = v[-2, nout_start-1:nout_end]   # zero-gradient outlet velocity
+    u[-1, nout_start-1:nout_end+1] = u[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
+    v[-1, nout_start-1:nout_end+1] = v[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
     # Advection-diffusion equation (predictor)
     ut, vt = AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, 'Upwind')
 
     # Update boundary conditions for temporary velocities
-    ut[0, nin_start-1:nin_end] = u_in       # fixed inlet velocity
-    ut[-1, nout_start-1:nout_end] = u[-1, nout_start-1:nout_end]   # zero-gradient outlet velocity
-    vt[-1, nout_start-1:nout_end] = v[-1, nout_start-1:nout_end]   # zero-gradient outlet velocity
+    ut[0, nin_start-1:nin_end+1] = u_in       # fixed inlet velocity
+    ut[-1, nout_start-1:nout_end+1] = u[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
+    vt[-1, nout_start-1:nout_end+1] = v[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
     # Pressure equation (Poisson)
     p, iter = Pressure_Poisson(p, ut, vt, gamma, nx, ny, hx, hy, dt, beta, max_iterations, max_error)

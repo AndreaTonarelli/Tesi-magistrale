@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 from   matplotlib import cm
 from   matplotlib.patches import Rectangle
 from   numba import njit
-from   functions import *
+from   functions_1 import *
 plt.style.use(['science', 'no-latex'])
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -13,15 +13,16 @@ plt.style.use(['science', 'no-latex'])
 # Data
 P = 101325.0       # Pa
 T = 25+273.15      # K
+g = 0        # m/s2
 
 Lx = 3.0           # m
 Ly = 1.0           # m
-nx = 150
-ny = 50
+nx = 300
+ny = 100
 nu = 1e-6          # m2/s  (dynamic viscosity of fluid)
-Gamma = 1e-3       # m2/s  (diffusion coefficient of O2 in water)
-u_in = 0.1         # m/s   (inlet velocity)
-tau = 20.0         # s     (simulation time)
+Gamma = 1e-4       # m2/s  (diffusion coefficient of O2 in water)
+u_in = 1e-3        # m/s   (inlet velocity)
+tau = 500.0        # s     (simulation time)
 method = 'Upwind'  # Discretization method (CDS or Upwind)
 
 # Boundary conditions (no-slip)
@@ -31,16 +32,16 @@ ve = 0             # m/s
 vw = 0             # m/s
 
 # Inlet concentrations
-cO2in = 0.1       # kmol/m3
+cO2in = 1.        # mol/m3
 
 # Immobilized cells parameters
-cB0 = 0.01        # kmol/m3
-thick = 0.05      # m (thickness of cells layer)
-k = 1             # m3/kmol/s (reaction constant) -> r = k*cO2*cB
+cB0 = 0.01         # mol/m3
+thick = 0.05       # m (thickness of cells layer)
+k = 0.001          # m3/mol/s (reaction constant) -> r = k*cO2*cB
 
 # Parameters for SOR (Poisson eq)
 max_iterations = 1000000
-beta = 1.85
+beta = 1.9
 max_error = 1e-6
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -65,47 +66,47 @@ th = int(np.ceil(thick/hx))    # it finds the index not the positions!
 x_obst1_start = 0.3
 x_obst1_end = 0.4
 y_obst1_start = 0.
-y_obst1_end = 0.5
+y_obst1_end = 0.6
 # Obstacle 2
 x_obst2_start = 0.6
 x_obst2_end = 0.7
-y_obst2_start = 0.5
+y_obst2_start = 0.4
 y_obst2_end = 1
 # Obstacle 3
 x_obst3_start = 0.9
 x_obst3_end = 1.0
 y_obst3_start = 0.
-y_obst3_end = 0.5
+y_obst3_end = 0.6
 # Obstacle 4
 x_obst4_start = 1.2
 x_obst4_end = 1.3
-y_obst4_start = 0.5
+y_obst4_start = 0.4
 y_obst4_end = 1.0
 # Obstacle 5
 x_obst5_start = 1.5
 x_obst5_end = 1.6
 y_obst5_start = 0.
-y_obst5_end = 0.5
+y_obst5_end = 0.6
 # Obstacle 6
 x_obst6_start = 1.8
 x_obst6_end = 1.9
-y_obst6_start = 0.5
+y_obst6_start = 0.4
 y_obst6_end = 1.0
 # Obstacle 7
 x_obst7_start = 2.1
 x_obst7_end = 2.2
 y_obst7_start = 0.
-y_obst7_end = 0.5
+y_obst7_end = 0.6
 # Obstacle 8
 x_obst8_start = 2.4
 x_obst8_end = 2.5
-y_obst8_start = 0.5
+y_obst8_start = 0.4
 y_obst8_end = 1.0
 # Obstacle 9
 x_obst9_start = 2.7
 x_obst9_end = 2.8
 y_obst9_start = 0.
-y_obst9_end = 0.5
+y_obst9_end = 0.6
 
 # Obstacles definition: rectangle with base xs:xe and height ys:ye
 # Obstacle 1
@@ -155,7 +156,7 @@ ys9 = np.where(y <= y_obst9_start)[0][-1] + 1
 ye9 = np.where(y < y_obst9_end)[0][-1] + 1
 
 # Inlet section (west side)
-nin_start = 2        # first cell index (pay attention cause it is in MATLAB notation!)
+nin_start = 1        # first cell index (pay attention cause it is in MATLAB notation!)
 nin_end = ny + 1     # last cell index (pay attention cause it is in MATLAB notation!)
 
 # Outlet section (east side)
@@ -163,7 +164,7 @@ nout_start = 2       # first cell index (pay attention cause it is in MATLAB not
 nout_end = ny+1      # last cell index (pay attention cause it is in MATLAB notation!)
 
 # Time step
-sigma = 0.75                                       # safety factor for time step (stability)
+sigma = 0.5                                        # safety factor for time step (stability)
 dt_diff_ns = np.minimum(hx,hy)**2/4/nu             # time step (diffusion stability) [s]
 dt_conv_ns = 4*nu/u_in**2                          # time step (convection stability) [s]
 dt_ns      = np.minimum(dt_diff_ns, dt_conv_ns);   # time step (stability due to FD) [s]
@@ -337,7 +338,7 @@ flagv[xs9:xe9+1, ys9-1:ye9+1] = 1
 flagp[xs9:xe9+1, ys9:ye9+1] = 1
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-u[:, :] = 0.5                      # Internal points: fixed velocity [m/s]
+u[:, :] = u_in                     # Internal points: fixed velocity [m/s]
 u[xs1-1:xe1+1, ys1:ye1+1] = 0      # Obstacle 1
 u[xs2-1:xe2+1, ys2:ye2+1] = 0      # Obstacle 2
 u[xs3-1:xe3+1, ys3:ye3+1] = 0      # Obstacle 3
@@ -440,7 +441,7 @@ for it in range(1, nsteps+1):
     v[-1, nout_start-1:nout_end+1] = v[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
     # Advection-diffusion equation (predictor)
-    ut, vt = AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, flagu, flagv, method)
+    ut, vt = AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, g, flagu, flagv, method)
 
     # Update boundary conditions for temporary velocities
     ut[0, nin_start-1:nin_end+1] = u_in       # fixed inlet velocity
@@ -454,7 +455,7 @@ for it in range(1, nsteps+1):
     u, v = correction_velocity(u, v, ut, vt, p, nx, ny, hx, hy, dt, flagu, flagv)
 
     # Print on the screen
-    if it <= 50:
+    if it <= 20:
         if it % 1 == 0:
             print('Step:', it, '- Time:', t,  '- Poisson iterations:', iter)
     else :
@@ -536,10 +537,10 @@ PlotFunctions(xx, yy, uu, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'u -
 PlotFunctions(xx, yy, vv, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'v - velocity [m/s]', 'x [m]', 'y [m]')
 
 # Surface map: cO2
-PlotFunctions(xx, yy, ccO2, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'O2 concentration [kmol/m3]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, ccO2, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'O2 concentration [mol/m3]', 'x [m]', 'y [m]')
 
 # Surface map: cB
-PlotFunctions(xx, yy, ccB, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'Cells concentration [kmol/m3]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, ccB, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, Lx, Ly, 'Cells concentration [mol/m3]', 'x [m]', 'y [m]')
 
 # Streamlines
 fig, ax = plt.subplots()
