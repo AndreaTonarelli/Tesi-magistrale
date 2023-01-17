@@ -22,10 +22,10 @@ def Obstacles(x, y):
     y_obst3_start = 0.7
     y_obst3_end = 1.2
     # Obstacle 4
-    x_obst4_start = 1.0
-    x_obst4_end = 1.1
-    y_obst4_start = 0.3
-    y_obst4_end = 0.9
+    x_obst4_start = 1.2
+    x_obst4_end = 1.3
+    y_obst4_start = 0.4
+    y_obst4_end = 0.8
     # Obstacle 5
     x_obst5_start = 1.8
     x_obst5_end = 1.9
@@ -37,10 +37,10 @@ def Obstacles(x, y):
     y_obst6_start = 0.7
     y_obst6_end = 1.2
     # Obstacle 7
-    x_obst7_start = 2.2
-    x_obst7_end = 2.3
-    y_obst7_start = 0.3
-    y_obst7_end = 0.9
+    x_obst7_start = 2.4
+    x_obst7_end = 2.5
+    y_obst7_start = 0.4
+    y_obst7_end = 0.8
     # Obstacle 8
     x_obst8_start = 3.0
     x_obst8_end = 3.1
@@ -52,10 +52,10 @@ def Obstacles(x, y):
     y_obst9_start = 0.7
     y_obst9_end = 1.2
     # Obstacle 10
-    x_obst10_start = 3.4
-    x_obst10_end = 3.5
-    y_obst10_start = 0.3
-    y_obst10_end = 0.9
+    x_obst10_start = 3.6
+    x_obst10_end = 3.7
+    y_obst10_start = 0.4
+    y_obst10_end = 0.8
     # Obstacle 11
     x_obst11_start = 4.2
     x_obst11_end = 4.3
@@ -90,14 +90,14 @@ def Obstacles(x, y):
         return X_obst
 
     X_obst1 = [x_obst1_start, x_obst1_end, y_obst1_start, y_obst1_end]
-    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, x_obst4_start, 15, 90, 0.75, 'south')
-    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, x_obst4_start, 15, 90, 0.75, 'north')
+    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, x_obst4_start, 10, 70, 0.7, 'south')
+    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, x_obst4_start, 10, 70, 0.7, 'north')
     X_obst4 = [x_obst4_start, x_obst4_end, y_obst4_start, y_obst4_end]
-    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, x_obst7_start, 15, 90, 0.75, 'south')
-    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, x_obst7_start, 15, 90, 0.75, 'north')
+    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, x_obst7_start, 10, 70, 0.7, 'south')
+    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, x_obst7_start, 10, 70, 0.7, 'north')
     X_obst7 = [x_obst7_start, x_obst7_end, y_obst7_start, y_obst7_end]
-    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, x_obst10_start, 15, 90, 0.75, 'south')
-    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, x_obst10_start, 15, 90, 0.75, 'north')
+    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, x_obst10_start, 10, 70, 0.7, 'south')
+    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, x_obst10_start, 10, 70, 0.7, 'north')
     X_obst10 = [x_obst10_start, x_obst10_end, y_obst10_start, y_obst10_end]
     X_obst11 = [x_obst11_start, x_obst11_end, y_obst11_start, y_obst11_end]
     X_obst12 = [x_obst12_start, x_obst12_end, y_obst12_start, y_obst12_end]
@@ -132,12 +132,12 @@ def Obstacles(x, y):
     # Definind the idraulic radius
     dR = x_obst4_start - x_obst3_end
 
-    return X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, dR
+    return [X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12], dR
 
 
 
 # Set 1 in obstacles coordinates
-def flag(flagu,flagv,flagp, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
+def flag(flagu,flagv,flagp, XX):
 
     # Set flag to 1 in obstacle cells
     @njit
@@ -151,25 +151,15 @@ def flag(flagu,flagv,flagp, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
 
         return flagu, flagv, flagp
 
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X1)   # Obstacle 1 (including ones near corners!!)
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X2)   # Obstacle 2
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X3)   # Obstacle 3
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X4)   # Obstacle 4
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X5)   # Obstacle 5
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X6)   # Obstacle 6
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X7)   # Obstacle 7
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X8)   # Obstacle 8
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X9)   # Obstacle 9
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X10)  # Obstacle 10
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X11)  # Obstacle 11
-    flagu, flagv, flagp = flag_def(flagu, flagv, flagp, X12)  # Obstacle 12
+    for i in range(len(XX)):
+        flagu, flagv, flagp = flag_def(flagu, flagv, flagp, XX[i])
 
     return flagu, flagv, flagp
 
 
 
 # Initialization of u velocity avoiding obstacles
-def u_initialize(u, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
+def u_initialize(u, XX):
 
     # Initialize u velocity on obstacles = 0
     @njit
@@ -181,17 +171,7 @@ def u_initialize(u, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
 
         return u
 
-    u = u_velocity(u, X1)       # Obstacle 1 (including ones near corners!!)
-    u = u_velocity(u, X2)       # Obstacle 2
-    u = u_velocity(u, X3)       # Obstacle 3
-    u = u_velocity(u, X4)       # Obstacle 4
-    u = u_velocity(u, X5)       # Obstacle 5
-    u = u_velocity(u, X6)       # Obstacle 6
-    u = u_velocity(u, X7)       # Obstacle 7
-    u = u_velocity(u, X8)       # Obstacle 8
-    u = u_velocity(u, X9)       # Obstacle 9
-    u = u_velocity(u, X10)      # Obstacle 10
-    u = u_velocity(u, X11)      # Obstacle 11
-    u = u_velocity(u, X12)      # Obstacle 12
+    for i in range(len(XX)):
+        u = u_velocity(u, XX[i])
 
     return u

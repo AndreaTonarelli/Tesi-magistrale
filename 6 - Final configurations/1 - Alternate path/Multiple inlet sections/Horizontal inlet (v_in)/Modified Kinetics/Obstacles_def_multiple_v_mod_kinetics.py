@@ -8,9 +8,9 @@ def Obstacles(x, y):
     # Obstacle coordinates
     # Obstacle 1
     x_obst1_start = 0.
-    x_obst1_end = 0.1
+    x_obst1_end = 0.01
     y_obst1_start = 0.
-    y_obst1_end = 0.7
+    y_obst1_end = 1.2
     # Obstacle 2
     x_obst2_start = 0.4
     x_obst2_end = 0.5
@@ -87,7 +87,7 @@ def Obstacles(x, y):
 
         return X_obst
 
-    n, m, p = 12, 100, 0.75
+    n, m, p = 10, 90, 0.75
     X_obst1 = defining_obstacles(x_obst1_start, x_obst1_end, y_obst1_start, y_obst1_end, y_obst2_start, y_obst2_end, x_obst3_start, n, m, p, 'south')
     X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, y_obst3_start, y_obst3_end, x_obst4_start, n, m, p, 'north')
     X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, y_obst4_start, y_obst4_end, x_obst5_start, n, m, p, 'south')
@@ -154,19 +154,19 @@ def flag(flagu,flagv,flagp, XX):
 
 
 # Initialization of u velocity avoiding obstacles
-def u_initialize(u, XX):
+def v_initialize(v, XX):
 
     # Initialize u velocity on obstacles = 0
     @njit
-    def u_velocity(u, X):
+    def u_velocity(v, X):
 
         for i in range(len(X) // 4):
             xs = X[4*i]; xe = X[4*i+1]; ys = X[4*i+2]; ye = X[4*i+3]
-            u[xs-1:xe+1, ys:ye+1] = 0
+            v[xs:xe+1, ys-1:ye+1] = 0
 
-        return u
+        return v
 
     for i in range(len(XX)):
-        u = u_velocity(u, XX[i])
+        v = u_velocity(v, XX[i])
 
-    return u
+    return v

@@ -5,7 +5,7 @@ from   numba import njit
 
 
 # Gamma coefficient for Poisson equation
-def gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
+def gammaCoeff(gamma, hx,hy, nout_start,nout_end, XX):
 
     # Defining gamma on the entire domain edges and corners
     gamma[1, 2:-2]  = hx*hy / (2*hx**2 +   hy**2)                 # west wall
@@ -18,9 +18,9 @@ def gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8
     gamma[-2, -2]   = hx*hy / (  hx**2 +   hy**2)
 
     # Correction of gamma taking into account inlet and outlet section
-    gamma[-2, nout_start:nout_end+1] = hx*hy / (2*hx**2 + 2*hy**2)    # Outlet section is treated as an internal cell
-    gamma[-2, nout_start]            = hx*hy / (  hx**2 + 2*hy**2)    # Corners of outlet sections
-    gamma[-2, nout_end]              = hx*hy / (  hx**2 + 2*hy**2)
+    gamma[-2, nout_start-1:nout_end-1] = hx*hy / (2*hx**2 + 2*hy**2)    # Outlet section is treated as an internal cell
+    gamma[-2, nout_start-1]            = hx*hy / (  hx**2 + 2*hy**2)    # Corners of outlet sections
+    gamma[-2, nout_end-1]              = hx*hy / (  hx**2 + 2*hy**2)
 
     # Correction of gamma close to the obstacles
     @njit
@@ -35,16 +35,8 @@ def gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8
         
         return gamma
 
-    gamma = gamma_edges_obst(gamma, X1, hx, hy) # Obstacle 1 (including ones near corners!!)
-    gamma = gamma_edges_obst(gamma, X2, hx, hy) # Obstacle 2
-    gamma = gamma_edges_obst(gamma, X3, hx, hy) # Obstacle 3
-    gamma = gamma_edges_obst(gamma, X4, hx, hy) # Obstacle 4
-    gamma = gamma_edges_obst(gamma, X5, hx, hy) # Obstacle 5
-    gamma = gamma_edges_obst(gamma, X6, hx, hy) # Obstacle 6
-    gamma = gamma_edges_obst(gamma, X7, hx, hy) # Obstacle 7
-    gamma = gamma_edges_obst(gamma, X8, hx, hy) # Obstacle 8
-    gamma = gamma_edges_obst(gamma, X9, hx, hy) # Obstacle 9
-    gamma = gamma_edges_obst(gamma, X10, hx, hy) # Obstacle 10
+    for i in range(len(XX)):
+        gamma = gamma_edges_obst(gamma, XX[i], hx, hy)  # Obstacle i+1 (including ones near corners!!)
 
     # Correction of gamma close to the obstacles edges
     @njit
@@ -78,6 +70,7 @@ def gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8
                 gamma[xe1+1, ys2-1] = hx*hy / (hx**2 + hy**2)
             return gamma
             
+    X1, X2, X3, X4, X5, X6, X7, X8, X9, X10 = XX[:]
     gamma = gamma_corners_obst(gamma, X1, hx, hy, 'entrance')   # Obstacle 1
     gamma = gamma_corners_obst(gamma, X2, hx, hy, 'north')      # Obstacle 2
     gamma = gamma_corners_obst(gamma, X3, hx, hy, 'south')      # Obstacle 3
@@ -227,7 +220,7 @@ def AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, g, flagu, flagv, 
 
 
 # Boundary conditions for velocities
-def VelocityBCs(u, v, uwall, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
+def VelocityBCs(u, v, uwall, XX):
 
     '''
     @njit
@@ -329,16 +322,8 @@ def VelocityBCs(u, v, uwall, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
             u, v = vel_walls(u, v, X[124], X[125], X[126], X[127])
         return u, v
 
-    u, v = vel_walls_function(u, v, X1)     # Obstacle 1
-    u, v = vel_walls_function(u, v, X2)     # Obstacle 2
-    u, v = vel_walls_function(u, v, X3)     # Obstacle 3
-    u, v = vel_walls_function(u, v, X4)     # Obstacle 4
-    u, v = vel_walls_function(u, v, X5)     # Obstacle 5
-    u, v = vel_walls_function(u, v, X6)     # Obstacle 6
-    u, v = vel_walls_function(u, v, X7)     # Obstacle 7
-    u, v = vel_walls_function(u, v, X8)     # Obstacle 8
-    u, v = vel_walls_function(u, v, X9)     # Obstacle 9
-    u, v = vel_walls_function(u, v, X10)     # Obstacle 10
+    for i in range(len(XX)):
+        u, v = vel_walls_function(u, v, XX[i])     # Obstacle i+1
 
     return u, v
 
@@ -392,7 +377,7 @@ def AdvDiffSpecies(phi, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method):
 
 
 # Boundary conditions for species
-def SpeciesBCs(phi, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
+def SpeciesBCs(phi, XX):
 
     # Entire domain BCs (Dirichlet)
     phi[1:-1, 0] = phi[1:-1, 1];           # South wall
@@ -500,16 +485,8 @@ def SpeciesBCs(phi, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
             phi = phi_obstacle(phi, X[124], X[125], X[126], X[127])
         return phi
 
-    phi = phi_obstacle_function(phi, X1)       # 1st Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X2)       # 2nd Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X3)       # 3rd Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X4)       # 4th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X5)       # 5th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X6)       # 6th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X7)       # 7th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X8)       # 8th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X9)       # 9th Obstacle BCS (Dirichlet)
-    phi = phi_obstacle_function(phi, X10)      # 10th Obstacle BCS (Dirichlet)
+    for i in range(len(XX)):
+        phi = phi_obstacle_function(phi, XX[i])       # i+1 Obstacle BCS (Dirichlet)
 
     return phi
 
@@ -517,19 +494,38 @@ def SpeciesBCs(phi, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
 
 # Reaction step after Advection-Diffusion of species
 @njit
-def ReactionStep(cO2star, cBstar, cGstar, dt, mu_max, K_G, nx, ny):
+def ReactionStep(cO2star, Xvstar, cGlcstar, cGlnstar, cLacstar, cAmmstar, cB1star, dt, parameters, nx, ny):
 
-    cO2 = cO2star
-    cB = cBstar
-    cG = cGstar
+    cO2 = cO2star; Xv = Xvstar; cGlc = cGlcstar
+    cGln = cGlnstar; cLac = cLacstar; cAmm = cAmmstar; cB1 = cB1star
+
+    mu_max, k_d, K_Glc, K_Gln, KI_Amm, KI_Lac, KD_Amm, KD_Lac, Y_Glc, Y_Gln, Y_Lac, Y_Amm, Q_B1, q_O2 = parameters
 
     for i in range(1, nx+1):
         for j in range(1, ny+1):
 
-            cG[i,j] = ( -(K_G - cGstar[i,j] + mu_max*dt*cBstar[i,j]) + ((K_G - cGstar[i,j] + mu_max*dt*cBstar[i,j])**2 + 4*K_G*cGstar[i,j])**0.5 ) / 2
-            cB[i,j] = cBstar[i,j] / (1 - mu_max * dt * cG[i,j] / (K_G + cG[i,j]))
+            if cLacstar[i,j] <= 4.6e-3 and cAmmstar[i,j] <= 52e-3:
+                mu = mu_max * cGlcstar[i,j]/(K_Glc+cGlcstar[i,j]) * cGlnstar[i,j]/(K_Gln+cGlnstar[i,j])
+                mu_d = 0
+            elif cLacstar[i,j] > 4.6e-3 and cAmmstar[i,j] <= 52e-3:
+                mu = mu_max * cGlcstar[i,j]/(K_Glc+cGlcstar[i,j]) * cGlnstar[i,j]/(K_Gln+cGlnstar[i,j]) * KI_Lac/(KI_Lac+cLacstar[i,j])
+                mu_d = 0
+            elif cLacstar[i,j] <= 4.6e-3 and cAmmstar[i,j] > 52e-3:
+                mu = mu_max * cGlcstar[i,j]/(K_Glc+cGlcstar[i,j]) * cGlnstar[i,j]/(K_Gln+cGlnstar[i,j]) * KI_Amm/(KI_Amm+cAmmstar[i,j])
+                mu_d = 0
+            else:
+                mu = mu_max * cGlcstar[i,j]/(K_Glc+cGlcstar[i,j]) * cGlnstar[i,j]/(K_Gln+cGlnstar[i,j]) * KI_Amm/(KI_Amm+cAmmstar[i,j]) * KI_Lac/(KI_Lac+cLacstar[i,j])
+                mu_d = k_d * cLacstar[i,j]/(KD_Lac+cLacstar[i,j]) * cAmmstar[i,j]/(KD_Amm+cAmmstar[i,j])
 
-    return cO2, cB, cG
+            Xv[i,j] = Xvstar[i,j] * (1 + dt*(mu-mu_d))
+            cGlc[i,j] = cGlcstar[i,j] - dt*(mu-mu_d)/Y_Glc*Xv[i,j]
+            cGln[i,j] = cGlnstar[i,j] - dt*(mu-mu_d)/Y_Gln*Xv[i,j]
+            cLac[i,j] = cLacstar[i,j] + dt*(mu-mu_d)/Y_Glc*Y_Lac*Xv[i,j]
+            cAmm[i,j] = cAmmstar[i,j] + dt*(mu-mu_d)/Y_Gln*Y_Amm*Xv[i,j]
+            cO2[i,j]  = cO2star[i,j] - dt*q_O2*Xv[i,j]*cO2star[i,j]/(cO2star[i,j]+1e-12)
+            cB1[i,j]  = cB1star[i,j] * (1 + dt*Q_B1*Xv[i,j]*(1 - mu/mu_max) )
+
+    return cO2, Xv, cGlc, cGln, cLac, cAmm, cB1
 
 
 
@@ -544,6 +540,19 @@ def InletConcentration(phi, phi_in, nin_start, nin_end, position):
         phi[nin_start:nin_end+1,  0] = 2*phi_in - phi[nin_start:nin_end+1,  1]
     
     return phi
+
+
+
+# Immobilized cells initialized over obstacles
+def ImmobilizedCells(Xv, Xv0, X, th, position):
+    xs = X[0]; xe = X[1]; ys = X[2]; ye = X[3]
+
+    if position == 'left':
+        Xv[xs-th:xs, ys:ye] = Xv0
+    elif position == 'right':
+        Xv[xe:xe+th, ys:ye] = Xv0
+
+    return Xv
 
 
 
@@ -576,10 +585,10 @@ def node_interp(f, grid, nx, ny, flag):
 
 
 # Graphical representation of obstacles
-def Graphical_obstacles(uu, vv, pp, tau, ccO2, ccB, ccG, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10):
+def Graphical_obstacles(uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1, XX):
     
     @njit
-    def graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X):
+    def graphical(uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1, X):
 
         for i in range(len(X) // 4):
             xs = X[4*i]; xe = X[4*i+1]; ys = X[4*i+2]; ye = X[4*i+3]
@@ -588,23 +597,19 @@ def Graphical_obstacles(uu, vv, pp, tau, ccO2, ccB, ccG, X1, X2, X3, X4, X5, X6,
             pp[xs-1:xe+1, ys-1:ye+1] = 0
             tau[xs-1:xe+1, ys-1:ye+1] = 0
             ccO2[xs-1:xe+1, ys-1:ye+1] = 0
-            ccB[xs-1:xe+1, ys-1:ye+1] = 0
-            ccG[xs-1:xe+1, ys-1:ye+1] = 0
+            ccXv[xs-1:xe+1, ys-1:ye+1] = 0
+            ccGlc[xs-1:xe+1, ys-1:ye+1] = 0
+            ccGln[xs-1:xe+1, ys-1:ye+1] = 0
+            ccLac[xs-1:xe+1, ys-1:ye+1] = 0
+            ccAmm[xs-1:xe+1, ys-1:ye+1] = 0
+            ccB1[xs-1:xe+1, ys-1:ye+1] = 0
 
-        return uu, vv, pp, tau, ccO2, ccB, ccG
+        return uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1
 
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X1)  # (including ones near corners!!)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X2)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X3)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X4)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X5)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X6)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X7)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X8)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X9)
-    uu, vv, pp, tau, ccO2, ccB, ccG = graphical(uu, vv, pp, tau, ccO2, ccB, ccG, X10)
+    for i in range(len(XX)):
+        uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1 = graphical(uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1, XX[i])
 
-    return uu, vv, pp, tau, ccO2, ccB, ccG
+    return uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1
 
 
 
@@ -643,17 +648,24 @@ def ShearStress(v, dR, nu, rhoL, nx, ny):
 
 # Collecting the cells mean concentration
 @njit
-def CellsMeanConcentration(cB, th, X):
+def CellsMeanConcentration(cB, th, X, position):
 
     xs = X[0]; xe = X[1]; ys = X[2]; ye = X[3]
 
     cBmean = 0
 
-    for i in range(xs-th, xs):     # (pay attention if cells are above or under the plate!!!)
-        for j in range(ys, ye+1):
+    if position == 'left':
+        for i in range(xs-th, xs):     # (pay attention if cells are above or under the plate!!!)
+            for j in range(ys, ye+1):
 
-            cBmean_o = cBmean
-            cBmean = cBmean_o + cB[i,j]
+                cBmean_o = cBmean
+                cBmean = cBmean_o + cB[i,j]
+    if position == 'right':
+        for i in range(xe, xe+th):     # (pay attention if cells are above or under the plate!!!)
+            for j in range(ys, ye+1):
+
+                cBmean_o = cBmean
+                cBmean = cBmean_o + cB[i,j]
 
     cBmean = cBmean / ((ye - ys) * th)
 
@@ -661,8 +673,20 @@ def CellsMeanConcentration(cB, th, X):
 
 
 
+# Interpolation of cells concentration needed for graphical purposes
+def Interpolation_of_cells(ccXv, Xv, X, th, position):
+    # Position = if cells are on the left or on the right of the plates
+    xs = X[0]; xe = X[1]; ys = X[2]; ye = X[3]
+    if position == 'left':
+        ccXv[xs-th:xs, ys:ye] = Xv[xs-th:xs, ys+1:ye+1]
+    elif position == 'right':
+        ccXv[xe:xe+th, ys:ye] = Xv[xe:xe+th, ys+1:ye+1]
+    return ccXv
+
+
+
 # Plotting the results
-def PlotFunctions(xx, yy, phi, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, title, x_label, y_label):
+def PlotFunctions(xx, yy, phi, x, y, XX, Lx, Ly, title, x_label, y_label):
 
     def add_obst_patch(X):
 
@@ -673,8 +697,8 @@ def PlotFunctions(xx, yy, phi, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx
     fig, ax = plt.subplots()
     plot = plt.contourf(xx, yy, np.transpose(phi))
     plt.colorbar(plot)
-    add_obst_patch(X1); add_obst_patch(X2); add_obst_patch(X3); add_obst_patch(X4); add_obst_patch(X5)
-    add_obst_patch(X6); add_obst_patch(X7); add_obst_patch(X8); add_obst_patch(X9); add_obst_patch(X10)
+    for i in range(len(XX)):
+        add_obst_patch(XX[i])
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -684,7 +708,7 @@ def PlotFunctions(xx, yy, phi, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx
 
 
 # Plotting the streamlines
-def Streamlines(x, y, xx, yy, uu, vv, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, title, x_label, y_label):
+def Streamlines(x, y, xx, yy, uu, vv, XX, Lx, Ly, title, x_label, y_label):
 
     def add_obst_patch(X):
 
@@ -695,8 +719,8 @@ def Streamlines(x, y, xx, yy, uu, vv, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, L
     fig, ax = plt.subplots()
     # plt.quiver(xx[::10], yy[::10], np.transpose(uu)[::10], np.transpose(vv)[::10])
     plt.streamplot(xx, yy, np.transpose(uu), np.transpose(vv), linewidth = 1)
-    add_obst_patch(X1); add_obst_patch(X2); add_obst_patch(X3); add_obst_patch(X4); add_obst_patch(X5)
-    add_obst_patch(X6); add_obst_patch(X7); add_obst_patch(X8); add_obst_patch(X9); add_obst_patch(X10)
+    for i in range(len(XX)):
+        add_obst_patch(XX[i])
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -706,23 +730,15 @@ def Streamlines(x, y, xx, yy, uu, vv, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, L
 
 
 # Plotting the mean values of cB
-def MeanCellsPlot(t_vec, cBmean1, cBmean2, cBmean3, cBmean4, cBmean5, cBmean6, cBmean7, cBmean8, cBmean9, cBmean10, Time, cBmax):
+def MeanCellsPlot(t_vec, cBmean, Time, cBmax):
     t_vector = t_vec/60
     Time = Time/60
     plt.figure()
-    plt.plot(t_vector,cBmean1, label = 'Plate 1')
-    plt.plot(t_vector,cBmean2, label = 'Plate 2')
-    plt.plot(t_vector,cBmean3, label = 'Plate 3')
-    plt.plot(t_vector,cBmean4, label = 'Plate 4')
-    plt.plot(t_vector,cBmean5, label = 'Plate 5')
-    plt.plot(t_vector,cBmean6, label = 'Plate 6')
-    plt.plot(t_vector,cBmean7, label = 'Plate 7')
-    plt.plot(t_vector,cBmean8, label = 'Plate 8')
-    plt.plot(t_vector,cBmean9, label = 'Plate 9')
-    plt.plot(t_vector,cBmean10, label = 'Plate 10')
+    for i in range(len(cBmean)):
+        plt.plot(t_vector,cBmean[i], label = f'Plate {i+1}')
     plt.legend()
-    plt.title('Mean concentration of cells on each plate [mol/m3]')
+    plt.title('Mean number of cells on each plate [cells]')
     plt.xlabel('Time [min]')
-    plt.ylabel('Concentration [mol/m3]')
+    plt.ylabel('Number of cells [cells]')
     plt.xlim(0,Time)
     plt.ylim(0,cBmax)

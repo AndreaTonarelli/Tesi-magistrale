@@ -9,8 +9,8 @@ def Obstacles(x, y):
     # Obstacle 1
     x_obst1_start = 0.
     x_obst1_end = 0.01
-    y_obst1_start = 0.3
-    y_obst1_end = 0.9
+    y_obst1_start = 0.
+    y_obst1_end = 1.2
     # Obstacle 2
     x_obst2_start = 0.6
     x_obst2_end = 0.7
@@ -22,8 +22,8 @@ def Obstacles(x, y):
     y_obst3_start = 0.7
     y_obst3_end = 1.2
     # Obstacle 4
-    x_obst4_start = 1.0
-    x_obst4_end = 1.1
+    x_obst4_start = 1.2
+    x_obst4_end = 1.3
     y_obst4_start = 0.3
     y_obst4_end = 0.9
     # Obstacle 5
@@ -37,8 +37,8 @@ def Obstacles(x, y):
     y_obst6_start = 0.7
     y_obst6_end = 1.2
     # Obstacle 7
-    x_obst7_start = 2.2
-    x_obst7_end = 2.3
+    x_obst7_start = 2.4
+    x_obst7_end = 2.5
     y_obst7_start = 0.3
     y_obst7_end = 0.9
     # Obstacle 8
@@ -52,8 +52,8 @@ def Obstacles(x, y):
     y_obst9_start = 0.7
     y_obst9_end = 1.2
     # Obstacle 10
-    x_obst10_start = 3.4
-    x_obst10_end = 3.5
+    x_obst10_start = 3.6
+    x_obst10_end = 3.7
     y_obst10_start = 0.3
     y_obst10_end = 0.9
     # Obstacle 11
@@ -90,14 +90,14 @@ def Obstacles(x, y):
         return X_obst
 
     X_obst1 = [x_obst1_start, x_obst1_end, y_obst1_start, y_obst1_end]
-    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, x_obst4_start, 15, 90, 0.75, 'south')
-    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, x_obst4_start, 15, 90, 0.75, 'north')
+    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, x_obst4_start, 8, 50, 0.7, 'south')
+    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, x_obst4_start, 8, 50, 0.7, 'north')
     X_obst4 = [x_obst4_start, x_obst4_end, y_obst4_start, y_obst4_end]
-    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, x_obst7_start, 15, 90, 0.75, 'south')
-    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, x_obst7_start, 15, 90, 0.75, 'north')
+    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, x_obst7_start, 8, 50, 0.7, 'south')
+    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, x_obst7_start, 8, 50, 0.7, 'north')
     X_obst7 = [x_obst7_start, x_obst7_end, y_obst7_start, y_obst7_end]
-    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, x_obst10_start, 15, 90, 0.75, 'south')
-    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, x_obst10_start, 15, 90, 0.75, 'north')
+    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, x_obst10_start, 8, 50, 0.7, 'south')
+    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, x_obst10_start, 8, 50, 0.7, 'north')
     X_obst10 = [x_obst10_start, x_obst10_end, y_obst10_start, y_obst10_end]
     X_obst11 = [x_obst11_start, x_obst11_end, y_obst11_start, y_obst11_end]
     X_obst12 = [x_obst12_start, x_obst12_end, y_obst12_start, y_obst12_end]

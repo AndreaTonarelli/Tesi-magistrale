@@ -311,6 +311,26 @@ def VelocityBCs(u, v, uwall, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
             u, v = vel_walls(u, v, X[80], X[81], X[82], X[83])
         if n > 20:
             u, v = vel_walls(u, v, X[84], X[85], X[86], X[87])
+        if n > 21:
+            u, v = vel_walls(u, v, X[88], X[89], X[90], X[91])
+        if n > 22:
+            u, v = vel_walls(u, v, X[92], X[93], X[94], X[95])
+        if n > 23:
+            u, v = vel_walls(u, v, X[96], X[97], X[98], X[99])
+        if n > 24:
+            u, v = vel_walls(u, v, X[100], X[101], X[102], X[103])
+        if n > 25:
+            u, v = vel_walls(u, v, X[104], X[105], X[106], X[107])
+        if n > 26:
+            u, v = vel_walls(u, v, X[108], X[109], X[110], X[111])
+        if n > 27:
+            u, v = vel_walls(u, v, X[112], X[113], X[114], X[115])
+        if n > 28:
+            u, v = vel_walls(u, v, X[116], X[117], X[118], X[119])
+        if n > 29:
+            u, v = vel_walls(u, v, X[120], X[121], X[122], X[123])
+        if n > 30:
+            u, v = vel_walls(u, v, X[124], X[125], X[126], X[127])
         return u, v
 
     u, v = vel_walls_function(u, v, X1)     # Obstacle 1
@@ -464,6 +484,26 @@ def SpeciesBCs(phi, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12):
             phi = phi_obstacle(phi, X[80], X[81], X[82], X[83])
         if n > 20:
             phi = phi_obstacle(phi, X[84], X[85], X[86], X[87])
+        if n > 21:
+            phi = phi_obstacle(phi, X[88], X[89], X[90], X[91])
+        if n > 22:
+            phi = phi_obstacle(phi, X[92], X[93], X[94], X[95])
+        if n > 23:
+            phi = phi_obstacle(phi, X[96], X[97], X[98], X[99])
+        if n > 24:
+            phi = phi_obstacle(phi, X[100], X[101], X[102], X[103])
+        if n > 25:
+            phi = phi_obstacle(phi, X[104], X[105], X[106], X[107])
+        if n > 26:
+            phi = phi_obstacle(phi, X[108], X[109], X[110], X[111])
+        if n > 27:
+            phi = phi_obstacle(phi, X[112], X[113], X[114], X[115])
+        if n > 28:
+            phi = phi_obstacle(phi, X[116], X[117], X[118], X[119])
+        if n > 29:
+            phi = phi_obstacle(phi, X[120], X[121], X[122], X[123])
+        if n > 30:
+            phi = phi_obstacle(phi, X[124], X[125], X[126], X[127])
         return phi
 
     phi = phi_obstacle_function(phi, X1)       # 1st Obstacle BCS (Dirichlet)

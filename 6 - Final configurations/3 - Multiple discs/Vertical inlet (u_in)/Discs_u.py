@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from   numba import njit
-from   functions_10 import *
-from   Obstacles_def_1in_u import *
+from   numba.typed import List
+from   functions_20 import *
+from   Obst_def_discs_u import *
 plt.style.use(['science', 'no-latex'])
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -14,15 +15,16 @@ T = 25+273.15      # K
 g = 0.             # m/s2  (g = 9.80665)
 rhoL = 1000.       # kg/m3
 
-Lx = 4.0           # m
-Ly = 1.2           # m
+Lx = 5.0           # m
+Ly = 1.5           # m
 nx = 800
 ny = 300
 nu = 1e-6          # m2/s  (dynamic viscosity of fluid)
-Gamma = 1e-5       # m2/s  (diffusion coefficient of O2 in water)
-u_in = 1e-3        # m/s   (inlet velocity)
-Time = 1800.0      # s     (simulation time)
+Gamma = 5e-6       # m2/s  (diffusion coefficient of O2 in water)
+u_in = 6e-4        # m/s   (inlet velocity)
+Time = 1800.       # s     (simulation time)
 method = 'Upwind'  # Discretization method (CDS or Upwind)
+OnTheFly = 'No'    # On-the-fly plotting (if 'Yes') 
 
 # Boundary conditions (no-slip)
 un = 0             # m/s
@@ -31,15 +33,16 @@ ve = 0             # m/s
 vw = 0             # m/s
 
 # Inlet concentrations
-cO2in = 10.        # mol/m3
+cO2in = 1e3        # mol/m3
 cGlcin = 100.      # mol/m3
 cGlnin = 100.      # mol/m3
 
 # Immobilized cells parameters
-Xv0 = 1e8             # cells (initial number of viable cells)
+Xv0 = 1e8             # cells/m3 (initial number of viable cells)
+cB1_0 = 1e2           # mol/m3 (initial concentration of B1)
 thick = 0.05          # m (thickness of cells layer)
-mu_max = 0.1/3600     # 1/s (max growth rate) -> 0.029 1/h
-k_d = 0.02/3600       # 1/s (max death rate) -> 0.016 1/h
+mu_max = 0.029/3600   # 1/s (max growth rate)
+k_d = 0.016/3600      # 1/s (max death rate)
 K_Glc = 0.084         # mol/m3 (Monod const. of glucose)
 K_Gln = 0.047         # mol/m3 (Monod const. of glutamine)
 KI_Amm = 6.51         # mol/m3 (Monod const. of ammonia)
@@ -50,7 +53,9 @@ Y_Glc = 1.69e11       # cells/mol_Glc
 Y_Gln = 9.74e11       # cells/mol_Gln
 Y_Lac = 1.23          # mol_Lac/mol_Glc
 Y_Amm = 0.67          # mol_Amm/mol_Gln
-parameters = List([mu_max, k_d, K_Glc, K_Gln, KI_Amm, KI_Lac, KD_Amm, KD_Lac, Y_Glc, Y_Gln, Y_Lac, Y_Amm])
+Q_B1 = 4e-15/3600     # m3/cell/s
+q_O2 = 2e-13/3600     # mol_O2/cells/s
+parameters = List([mu_max, k_d, K_Glc, K_Gln, KI_Amm, KI_Lac, KD_Amm, KD_Lac, Y_Glc, Y_Gln, Y_Lac, Y_Amm, Q_B1, q_O2])
 
 # Parameters for SOR/SUR (Poisson eq)
 max_iterations = 1000000
@@ -86,17 +91,26 @@ X7 = XX[6]; xs7 = X7[0]; xe7 = X7[1]; ys7 = X7[2]; ye7 = X7[3]
 X8 = XX[7]; xs8 = X8[0]; xe8 = X8[1]; ys8 = X8[2]; ye8 = X8[3]
 X9 = XX[8]; xs9 = X9[0]; xe9 = X9[1]; ys9 = X9[2]; ye9 = X9[3]
 X10 = XX[9]; xs10 = X10[0]; xe10 = X10[1]; ys10 = X10[2]; ye10 = X10[3]
+X11 = XX[10]; xs11 = X11[0]; xe11 = X11[1]; ys11 = X11[2]; ye11 = X11[3]
+X12 = XX[11]; xs12 = X12[0]; xe12 = X12[1]; ys12 = X12[2]; ye12 = X12[3]
+X13 = XX[12]; xs13 = X13[0]; xe13 = X13[1]; ys13 = X13[2]; ye13 = X13[3]
+X14 = XX[13]; xs14 = X14[0]; xe14 = X14[1]; ys14 = X14[2]; ye14 = X14[3]
+X15 = XX[14]; xs15 = X15[0]; xe15 = X15[1]; ys15 = X15[2]; ye15 = X15[3]
+X16 = XX[15]; xs16 = X16[0]; xe16 = X16[1]; ys16 = X16[2]; ye16 = X16[3]
+X17 = XX[16]; xs17 = X17[0]; xe17 = X17[1]; ys17 = X17[2]; ye17 = X17[3]
 
-# Inlet section (west side)
-nin_start1 = ye1 + 1   # first cell index (pay attention cause it is in MATLAB notation!)
-nin_end1 = ny + 1      # last cell index (pay attention cause it is in MATLAB notation!)
+# Inlet section (north side)
+nin_start1 = 1           # first cell index (pay attention to Python INDEX!!!)
+nin_end1 = ys1 - 1       # last cell index
+nin_start2 = ye1 + 1     # first cell index (pay attention to Python INDEX!!!)
+nin_end2 = ny - 1        # last cell index
 
 # Outlet section (east side)
-nout_start = 2        # first cell index (pay attention cause it is in MATLAB notation!)
-nout_end = ys8 - 1    # last cell index (pay attention cause it is in MATLAB notation!)
+nout_start = int(ny*1/3)   # first cell index (0 is the first one!!!)
+nout_end = int(ny*2/3)     # last cell index
 
 # Time step
-sigma = 0.75                                        # safety factor for time step (stability)
+sigma = 0.5                                        # safety factor for time step (stability)
 dt_diff_ns = np.minimum(hx,hy)**2/4/nu             # time step (diffusion stability) [s]
 dt_conv_ns = 4*nu/u_in**2                          # time step (convection stability) [s]
 dt_ns      = np.minimum(dt_diff_ns, dt_conv_ns)    # time step (stability due to FD) [s]
@@ -107,12 +121,12 @@ dt         = sigma*min(dt_ns, dt_sp)               # time step (stability) [s]
 nsteps     = int(Time/dt)                          # number of steps
 Re         = u_in*Ly/nu                            # Reynolds' number
 
-print('Time step:', dt, 's' )
-print(' - Diffusion (NS):', dt_diff_ns, 's')
-print(' - Convection (NS):', dt_conv_ns, 's')
-print(' - Diffusion (Species):', dt_diff_sp, 's')
-print(' - Convection (Species):', dt_conv_sp, 's')
-print('Reynolds number:', Re, '\n')
+print('Time step:', round(dt,1), 's' )
+print(' - Diffusion (NS):', round(dt_diff_ns,1), 's')
+print(' - Convection (NS):', round(dt_conv_ns,1), 's')
+print(' - Diffusion (Species):', round(dt_diff_sp,1), 's')
+print(' - Convection (Species):', round(dt_conv_sp,1), 's')
+print('Reynolds number:', round(Re,1), '\n')
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     MEMORY ALLOCATION                                        ##
@@ -120,7 +134,7 @@ print('Reynolds number:', Re, '\n')
 # Main fields (velocities and pressure)
 u    = np.zeros([nx+1, ny+2]); v    = np.zeros([nx+2, ny+1]); p    = np.zeros([nx+2, ny+2])
 cO2  = np.zeros([nx+2, ny+2]); Xv   = np.zeros([nx+2, ny+2]); cGlc = np.zeros([nx+2, ny+2])
-cGln = np.zeros([nx+2, ny+2]); cAmm = np.zeros([nx+2, ny+2]); cLac = np.zeros([nx+2, ny+2])
+cGln = np.zeros([nx+2, ny+2]); cAmm = np.zeros([nx+2, ny+2]); cLac = np.zeros([nx+2, ny+2]); cB1 = np.zeros([nx+2, ny+2])
 
 # Temporary velocity fields
 ut = np.zeros_like(u)
@@ -129,11 +143,13 @@ vt = np.zeros_like(v)
 # Fields used only for graphical purposes
 uu    = np.zeros([nx+1, ny+1]); vv    = np.zeros([nx+1, ny+1]); pp    = np.zeros([nx+1, ny+1])
 ccO2  = np.zeros([nx+1, ny+1]); ccXv  = np.zeros([nx+1, ny+1]); ccGlc = np.zeros([nx+1, ny+1])
-ccGln = np.zeros([nx+1, ny+1]); ccAmm = np.zeros([nx+1, ny+1]); ccLac = np.zeros([nx+1, ny+1])
+ccGln = np.zeros([nx+1, ny+1]); ccAmm = np.zeros([nx+1, ny+1]); ccLac = np.zeros([nx+1, ny+1]); ccB1 = np.zeros([nx+1, ny+1])
 cBmean1 = np.zeros([nsteps]); cBmean2 = np.zeros([nsteps]); cBmean3 = np.zeros([nsteps])
 cBmean4 = np.zeros([nsteps]); cBmean5 = np.zeros([nsteps]); cBmean6 = np.zeros([nsteps])
 cBmean7 = np.zeros([nsteps]); cBmean8 = np.zeros([nsteps]); cBmean9 = np.zeros([nsteps])
-cBmean10 = np.zeros([nsteps])
+cBmean10 = np.zeros([nsteps]); cBmean11 = np.zeros([nsteps]); cBmean12 = np.zeros([nsteps])
+cBmean13 = np.zeros([nsteps]); cBmean14 = np.zeros([nsteps]); cBmean15 = np.zeros([nsteps])
+cBmean16 = np.zeros([nsteps]); cBmean17 = np.zeros([nsteps])
 t_vector = np.zeros([nsteps])
 
 # Coefficients for pressure equation
@@ -150,20 +166,44 @@ flagp = np.zeros([nx+2, ny+2])          # p-cells corresponding to the obstacle
 flagu, flagv, flagp = flag(flagu,flagv,flagp, XX)
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-u[:, :] = u_in/2                   # Internal points: fixed velocity [m/s]
-u = u_initialize(u, XX)            # set u = 0 over obstacles
-ut = u
+'''u[:, :] = u_in/10                   # Internal points: fixed velocity [m/s]
+u = u_initialize(u, XX)             # set u = 0 over obstacles
+ut = u'''
 
 # Immobilized cells initialized over obstacles
-Xv[xs2-th:xs2, ys2:ye2] = Xv0      # Obstacle 2
-Xv[xs3-th:xs3, ys3:ye3] = Xv0      # Obstacle 3
-Xv[xs4-th:xs4, ys4:ye4] = Xv0      # Obstacle 4
-Xv[xs5-th:xs5, ys5:ye5] = Xv0      # Obstacle 5
-Xv[xs6-th:xs6, ys6:ye6] = Xv0      # Obstacle 6
-Xv[xs7-th:xs7, ys7:ye7] = Xv0      # Obstacle 7
-Xv[xs8-th:xs8, ys8:ye8] = Xv0      # Obstacle 8
-Xv[xs9-th:xs9, ys9:ye9] = Xv0    # Obstacle 9
-Xv[xs10-th:xs10, ys10:ye10] = Xv0    # Obstacle 10
+cells_position = 'left'
+Xv = ImmobilizedCells(Xv, Xv0, X2, th, cells_position)  # Obstacle 2
+Xv = ImmobilizedCells(Xv, Xv0, X3, th, cells_position)  # Obstacle 3
+Xv = ImmobilizedCells(Xv, Xv0, X4, th, cells_position)  # Obstacle 4
+Xv = ImmobilizedCells(Xv, Xv0, X5, th, cells_position)  # Obstacle 5
+Xv = ImmobilizedCells(Xv, Xv0, X6, th, cells_position)  # Obstacle 6
+Xv = ImmobilizedCells(Xv, Xv0, X7, th, cells_position)  # Obstacle 7
+Xv = ImmobilizedCells(Xv, Xv0, X8, th, cells_position)  # Obstacle 8
+Xv = ImmobilizedCells(Xv, Xv0, X9, th, cells_position)  # Obstacle 9
+Xv = ImmobilizedCells(Xv, Xv0, X10, th, cells_position)  # Obstacle 10
+Xv = ImmobilizedCells(Xv, Xv0, X11, th, cells_position)  # Obstacle 11
+Xv = ImmobilizedCells(Xv, Xv0, X12, th, cells_position)  # Obstacle 12
+Xv = ImmobilizedCells(Xv, Xv0, X13, th, cells_position)  # Obstacle 13
+Xv = ImmobilizedCells(Xv, Xv0, X14, th, cells_position)  # Obstacle 14
+Xv = ImmobilizedCells(Xv, Xv0, X15, th, cells_position)  # Obstacle 15
+Xv = ImmobilizedCells(Xv, Xv0, X16, th, cells_position)  # Obstacle 16
+Xv = ImmobilizedCells(Xv, Xv0, X17, th, cells_position)  # Obstacle 17
+cB1 = ImmobilizedCells(cB1, cB1_0, X2, th, cells_position)  # Obstacle 2
+cB1 = ImmobilizedCells(cB1, cB1_0, X3, th, cells_position)  # Obstacle 3
+cB1 = ImmobilizedCells(cB1, cB1_0, X4, th, cells_position)  # Obstacle 4
+cB1 = ImmobilizedCells(cB1, cB1_0, X5, th, cells_position)  # Obstacle 5
+cB1 = ImmobilizedCells(cB1, cB1_0, X6, th, cells_position)  # Obstacle 6
+cB1 = ImmobilizedCells(cB1, cB1_0, X7, th, cells_position)  # Obstacle 7
+cB1 = ImmobilizedCells(cB1, cB1_0, X8, th, cells_position)  # Obstacle 8
+cB1 = ImmobilizedCells(cB1, cB1_0, X9, th, cells_position)  # Obstacle 9
+cB1 = ImmobilizedCells(cB1, cB1_0, X10, th, cells_position)  # Obstacle 10
+cB1 = ImmobilizedCells(cB1, cB1_0, X11, th, cells_position)  # Obstacle 11
+cB1 = ImmobilizedCells(cB1, cB1_0, X12, th, cells_position)  # Obstacle 12
+cB1 = ImmobilizedCells(cB1, cB1_0, X13, th, cells_position)  # Obstacle 13
+cB1 = ImmobilizedCells(cB1, cB1_0, X14, th, cells_position)  # Obstacle 14
+cB1 = ImmobilizedCells(cB1, cB1_0, X15, th, cells_position)  # Obstacle 15
+cB1 = ImmobilizedCells(cB1, cB1_0, X16, th, cells_position)  # Obstacle 16
+cB1 = ImmobilizedCells(cB1, cB1_0, X17, th, cells_position)  # Obstacle 17
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     SOLUTION OVER TIME                                       ##
@@ -186,6 +226,7 @@ for it in range(1, nsteps+1):
 
     # Over-writing inlet conditions
     u[0, nin_start1-1:nin_end1+1] = u_in     # fixed inlet velocity (west)
+    u[0, nin_start2-1:nin_end2+1] = u_in
 
     # Over-writing outlet conditions
     u[-1, nout_start-1:nout_end+1] = u[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
@@ -196,6 +237,7 @@ for it in range(1, nsteps+1):
 
     # Update boundary conditions for temporary velocities
     ut[0, nin_start1-1:nin_end1+1] = u_in     # fixed inlet velocity (west)
+    ut[0, nin_start2-1:nin_end2+1] = u_in
     ut[-1, nout_start-1:nout_end+1] = u[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
     vt[-1, nout_start-1:nout_end+1] = v[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
@@ -222,11 +264,15 @@ for it in range(1, nsteps+1):
     cGln = SpeciesBCs(cGln, XX)
     cLac = SpeciesBCs(cLac, XX)
     cAmm = SpeciesBCs(cAmm, XX)
+    cB1  = SpeciesBCs(cB1, XX)
 
     # Inlet sections
     cO2   = InletConcentration(cO2, cO2in, nin_start1, nin_end1, 'west')
     cGlc  = InletConcentration(cGlc, cGlcin, nin_start1, nin_end1, 'west')
     cGln  = InletConcentration(cGln, cGlnin, nin_start1, nin_end1, 'west')
+    cO2   = InletConcentration(cO2, cO2in, nin_start2, nin_end2, 'west')
+    cGlc  = InletConcentration(cGlc, cGlcin, nin_start2, nin_end2, 'west')
+    cGln  = InletConcentration(cGln, cGlnin, nin_start2, nin_end2, 'west')
 
     # Advection-Diffusion equation
     cO2star = AdvDiffSpecies(cO2, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
@@ -234,27 +280,44 @@ for it in range(1, nsteps+1):
     cGlnstar = AdvDiffSpecies(cGln, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
     cLacstar = AdvDiffSpecies(cLac, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
     cAmmstar = AdvDiffSpecies(cAmm, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
+    cB1star  = AdvDiffSpecies(cB1, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
     Xvstar = Xv
 
     # Reaction step (Linearization + Segregation)
-    cO2, Xv, cGlc, cGln, cLac, cAmm = ReactionStep(cO2star, Xvstar, cGlcstar, cGlnstar, cLacstar, cAmmstar, dt, parameters, nx, ny)
+    cO2, Xv, cGlc, cGln, cLac, cAmm, cB1 = ReactionStep(cO2star, Xvstar, cGlcstar, cGlnstar, cLacstar, cAmmstar, cB1star, dt, parameters, nx, ny)
 
     # Collecting cells mean values for graphical purposes
-    cBmean2[it-1] = CellsMeanConcentration(Xv, th, X2)   # (pay attention if cells are above or under the plate!!!)
-    cBmean3[it-1] = CellsMeanConcentration(Xv, th, X3)
-    cBmean4[it-1] = CellsMeanConcentration(Xv, th, X4)
-    cBmean5[it-1] = CellsMeanConcentration(Xv, th, X5)
-    cBmean6[it-1] = CellsMeanConcentration(Xv, th, X6)
-    cBmean7[it-1] = CellsMeanConcentration(Xv, th, X7)
-    cBmean8[it-1] = CellsMeanConcentration(Xv, th, X8)
-    cBmean9[it-1] = CellsMeanConcentration(Xv, th, X9)
-    cBmean10[it-1] = CellsMeanConcentration(Xv, th, X10)
+    cBmean2[it-1] = CellsMeanConcentration(Xv, th, X2, cells_position)   # (pay attention if cells are above or under the plate!!!)
+    cBmean3[it-1] = CellsMeanConcentration(Xv, th, X3, cells_position)
+    cBmean4[it-1] = CellsMeanConcentration(Xv, th, X4, cells_position)
+    cBmean5[it-1] = CellsMeanConcentration(Xv, th, X5, cells_position)
+    cBmean6[it-1] = CellsMeanConcentration(Xv, th, X6, cells_position)
+    cBmean7[it-1] = CellsMeanConcentration(Xv, th, X7, cells_position)
+    cBmean8[it-1] = CellsMeanConcentration(Xv, th, X8, cells_position)
+    cBmean9[it-1] = CellsMeanConcentration(Xv, th, X9, cells_position)
+    cBmean10[it-1] = CellsMeanConcentration(Xv, th, X10, cells_position)
+    cBmean11[it-1] = CellsMeanConcentration(Xv, th, X11, cells_position)
+    cBmean12[it-1] = CellsMeanConcentration(Xv, th, X12, cells_position)
+    cBmean13[it-1] = CellsMeanConcentration(Xv, th, X13, cells_position)
+    cBmean14[it-1] = CellsMeanConcentration(Xv, th, X14, cells_position)
+    cBmean15[it-1] = CellsMeanConcentration(Xv, th, X15, cells_position)
+    cBmean16[it-1] = CellsMeanConcentration(Xv, th, X16, cells_position)
+    cBmean17[it-1] = CellsMeanConcentration(Xv, th, X17, cells_position)
     
     # Collecting time values for graphical purposes
     t_vector[it-1] = t
 
     # Advance in time
     t = t + dt
+
+    # On-the-fly plotting
+    if OnTheFly == 'Yes' and it % 250 == 1:
+        plt.ion()
+        xx,yy = np.meshgrid(x,y)
+        ccGlc = node_interp(cGlc, 'p', nx, ny, flagp)
+        PlotFunctions(xx, yy, ccGlc, x, y, XX, Lx, Ly, f'Glucose concentration at time {t/60} min [mol/m3]', 'x [m]', 'y [m]')
+        plt.pause(0.5)
+
 
 # Shear stress over the entire domain
 dR = Obstacles(x, y)[-1]
@@ -274,25 +337,34 @@ ccGlc = node_interp(cGlc, 'p', nx, ny, flagp)
 ccGln = node_interp(cGln, 'p', nx, ny, flagp)
 ccLac = node_interp(cLac, 'p', nx, ny, flagp)
 ccAmm = node_interp(cAmm, 'p', nx, ny, flagp)
+ccB1  = node_interp(cB1, 'p', nx, ny, flagp)
 
 # Interpolation of cells concentration needed for graphical purposes
-ccXv = Interpolation_of_cells(ccXv, Xv, X2, th, 'left')  # Obstacle 2
-ccXv = Interpolation_of_cells(ccXv, Xv, X3, th, 'left')  # Obstacle 3
-ccXv = Interpolation_of_cells(ccXv, Xv, X4, th, 'left')  # Obstacle 4
-ccXv = Interpolation_of_cells(ccXv, Xv, X5, th, 'left')  # Obstacle 5
-ccXv = Interpolation_of_cells(ccXv, Xv, X6, th, 'left')  # Obstacle 6
-ccXv = Interpolation_of_cells(ccXv, Xv, X7, th, 'left')  # Obstacle 7
-ccXv = Interpolation_of_cells(ccXv, Xv, X8, th, 'left')  # Obstacle 8
-ccXv = Interpolation_of_cells(ccXv, Xv, X9, th, 'left')  # Obstacle 9
-ccXv = Interpolation_of_cells(ccXv, Xv, X10, th, 'left')  # Obstacle 10
+ccXv = Interpolation_of_cells(ccXv, Xv, X2, th, cells_position)  # Obstacle 2
+ccXv = Interpolation_of_cells(ccXv, Xv, X3, th, cells_position)  # Obstacle 3
+ccXv = Interpolation_of_cells(ccXv, Xv, X4, th, cells_position)  # Obstacle 4
+ccXv = Interpolation_of_cells(ccXv, Xv, X5, th, cells_position)  # Obstacle 5
+ccXv = Interpolation_of_cells(ccXv, Xv, X6, th, cells_position)  # Obstacle 6
+ccXv = Interpolation_of_cells(ccXv, Xv, X7, th, cells_position)  # Obstacle 7
+ccXv = Interpolation_of_cells(ccXv, Xv, X8, th, cells_position)  # Obstacle 8
+ccXv = Interpolation_of_cells(ccXv, Xv, X9, th, cells_position)  # Obstacle 9
+ccXv = Interpolation_of_cells(ccXv, Xv, X10, th, cells_position)  # Obstacle 10
+ccXv = Interpolation_of_cells(ccXv, Xv, X11, th, cells_position)  # Obstacle 11
+ccXv = Interpolation_of_cells(ccXv, Xv, X12, th, cells_position)  # Obstacle 12
+ccXv = Interpolation_of_cells(ccXv, Xv, X13, th, cells_position)  # Obstacle 13
+ccXv = Interpolation_of_cells(ccXv, Xv, X14, th, cells_position)  # Obstacle 14
+ccXv = Interpolation_of_cells(ccXv, Xv, X15, th, cells_position)  # Obstacle 15
+ccXv = Interpolation_of_cells(ccXv, Xv, X16, th, cells_position)  # Obstacle 16
+ccXv = Interpolation_of_cells(ccXv, Xv, X17, th, cells_position)  # Obstacle 17
 
 # Addition of obstacles for graphical purposes
-uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm = Graphical_obstacles(uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, XX)
+uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1 = Graphical_obstacles(uu, vv, pp, tau, ccO2, ccXv, ccGlc, ccGln, ccLac, ccAmm, ccB1, XX)
 
 # Creating a grid
 xx,yy = np.meshgrid(x,y)
 
 # Plotting the results
+plt.ioff()
 # Surface map: pressure
 PlotFunctions(xx, yy, pp, x, y, XX, Lx, Ly, 'Delta Pressure [Pa]', 'x [m]', 'y [m]')
 
@@ -317,6 +389,9 @@ PlotFunctions(xx, yy, ccLac, x, y, XX, Lx, Ly, 'Lactose concentration [mol/m3]',
 # Surface map: cAmm
 PlotFunctions(xx, yy, ccAmm, x, y, XX, Lx, Ly, 'Ammonia concentration [mol/m3]', 'x [m]', 'y [m]')
 
+# Surface map: cB1
+PlotFunctions(xx, yy, ccB1, x, y, XX, Lx, Ly, 'Antibody fusion protein concentration [mol/m3]', 'x [m]', 'y [m]')
+
 # Surface map: Xv
 PlotFunctions(xx, yy, ccXv, x, y, XX, Lx, Ly, 'Viable cells number [cells]', 'x [m]', 'y [m]')
 
@@ -327,6 +402,6 @@ PlotFunctions(xx, yy, tau, x, y, XX, Lx, Ly, 'Shear stress [N/m2]', 'x [m]', 'y 
 Streamlines(x, y, xx, yy, uu, vv, XX, Lx, Ly, 'Streamlines', 'x [m]', 'y [m]')
 
 # Mean values of cB
-MeanCellsPlot(t_vector, [cBmean1, cBmean2, cBmean3, cBmean4, cBmean5, cBmean6, cBmean7, cBmean8, cBmean9, cBmean10], Time, np.max(cBmean2)*1.5)
+MeanCellsPlot(t_vector, [cBmean2, cBmean3, cBmean4, cBmean5, cBmean6, cBmean7, cBmean8, cBmean9, cBmean10, cBmean11, cBmean12, cBmean13, cBmean14, cBmean15, cBmean16, cBmean17], Time, np.max(cBmean2)*1.5)
 
 plt.show()

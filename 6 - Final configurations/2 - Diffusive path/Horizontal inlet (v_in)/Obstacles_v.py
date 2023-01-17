@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from   numba import njit
-from   functions_13 import *
-from   Obstacles_def_multiple_v import *
+from   functions_15 import *
+from   Obstacles_def_v import *
 plt.style.use(['science', 'no-latex'])
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -14,15 +14,14 @@ T = 25+273.15      # K
 g = 0.             # m/s2  (g = 9.80665)
 rhoL = 1000.       # kg/m3
 
-Lx = 4.0           # m
+Lx = 4.3           # m
 Ly = 1.2           # m
-nx = 400
-ny = 150
+nx = 600
+ny = 200
 nu = 1e-6          # m2/s  (dynamic viscosity of fluid)
-Gamma = 1e-5       # m2/s  (diffusion coefficient of O2 in water)
-v_in = 2e-3        # m/s   (inlet velocity)
-v_in_l = 8e-4      # m/s   (inlet lateral velocity)
-Time = 1800.       # s     (simulation time)
+Gamma = 1e-6       # m2/s  (diffusion coefficient of O2 in water)
+v_in = 1e-3        # m/s   (inlet velocity)
+Time = 7200.       # s     (simulation time)
 method = 'Upwind'  # Discretization method (CDS or Upwind)
 
 # Boundary conditions (no-slip)
@@ -32,30 +31,18 @@ ve = 0             # m/s
 vw = 0             # m/s
 
 # Inlet concentrations
-cO2in = 10.        # mol/m3
-cGlcin = 100.      # mol/m3
-cGlnin = 100.      # mol/m3
+cO2in = 0.1         # mol/m3
+cGin = 0.1          # mol/m3
 
 # Immobilized cells parameters
-Xv0 = 1e8             # cells (initial number of viable cells)
-thick = 0.05          # m (thickness of cells layer)
-mu_max = 0.1/3600     # 1/s (max growth rate) -> 0.029 1/h
-k_d = 0.02/3600       # 1/s (max death rate) -> 0.016 1/h
-K_Glc = 0.084         # mol/m3 (Monod const. of glucose)
-K_Gln = 0.047         # mol/m3 (Monod const. of glutamine)
-KI_Amm = 6.51         # mol/m3 (Monod const. of ammonia)
-KI_Lac = 43.0         # mol/m3 (Monod const. of lactose)
-KD_Amm = 6.51         # mol/m3 (Inhibition const. of ammonia)
-KD_Lac = 45.8         # mol/m3 (Inhibition const. of lactose)
-Y_Glc = 1.69e11       # cells/mol_Glc
-Y_Gln = 9.74e11       # cells/mol_Gln
-Y_Lac = 1.23          # mol_Lac/mol_Glc
-Y_Amm = 0.67          # mol_Amm/mol_Gln
-parameters = List([mu_max, k_d, K_Glc, K_Gln, KI_Amm, KI_Lac, KD_Amm, KD_Lac, Y_Glc, Y_Gln, Y_Lac, Y_Amm])
+cB0 = 0.01          # mol/m3 (initialconcentration of cells)
+thick = 0.05        # m (thickness of cells layer)
+mu_max = 0.5/3600   # 1/s (max growth rate)
+K_G = 0.5           # mol/m3 (Monod const. of glucose)
 
 # Parameters for SOR/SUR (Poisson eq)
 max_iterations = 1000000
-beta = 0.5
+beta = 0.8
 max_error = 1e-6
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -86,23 +73,21 @@ X7 = Obstacles(x, y)[6]; xs7 = X7[0]; xe7 = X7[1]; ys7 = X7[2]; ye7 = X7[3]
 X8 = Obstacles(x, y)[7]; xs8 = X8[0]; xe8 = X8[1]; ys8 = X8[2]; ye8 = X8[3]
 X9 = Obstacles(x, y)[8]; xs9 = X9[0]; xe9 = X9[1]; ys9 = X9[2]; ye9 = X9[3]
 X10 = Obstacles(x, y)[9]; xs10 = X10[0]; xe10 = X10[1]; ys10 = X10[2]; ye10 = X10[3]
+X11 = Obstacles(x, y)[10]; xs11 = X11[0]; xe11 = X11[1]; ys11 = X11[2]; ye11 = X11[3]
+X12 = Obstacles(x, y)[11]; xs12 = X12[0]; xe12 = X12[1]; ys12 = X12[2]; ye12 = X12[3]
 
 # Inlet section (north side)
-nin_start1 = xe1 + 1    # first cell index (pay attention to Python INDEX!!!)
-nin_end1 = xs2 - 1      # last cell index
-# Inlet section lateral 3 (south side)
-nin_start2 = xe4 + 1   # first cell index 
-nin_end2 = xs5 - 1      # last cell index
-# Inlet section lateral 6 (north side)
-nin_start3 = xe7 + 1   # first cell index
-nin_end3 = xs8 - 1      # last cell index
+nin_start1 = xs1 + 1    # first cell index (pay attention to Python INDEX!!!)
+nin_end1 = int(xs3/2)   # last cell index
+nin_start2 = xs1 + 1    # first cell index (pay attention to Python INDEX!!!)
+nin_end2 = int(xs2/2)   # last cell index
 
 # Outlet section (east side)
-nout_start = 1          # first cell index (0 is the first one!!!)
-nout_end = ys10 - 1     # last cell index
+nout_start = ye11 + 1   # first cell index (0 is the first one!!!)
+nout_end = ys12 - 1     # last cell index
 
 # Time step
-sigma = 0.5                                        # safety factor for time step (stability)
+sigma = 0.1                                        # safety factor for time step (stability)
 dt_diff_ns = np.minimum(hx,hy)**2/4/nu             # time step (diffusion stability) [s]
 dt_conv_ns = 4*nu/v_in**2                          # time step (convection stability) [s]
 dt_ns      = np.minimum(dt_diff_ns, dt_conv_ns)    # time step (stability due to FD) [s]
@@ -152,11 +137,13 @@ cBmean7 = np.zeros([nsteps])
 cBmean8 = np.zeros([nsteps])
 cBmean9 = np.zeros([nsteps])
 cBmean10 = np.zeros([nsteps])
+cBmean11 = np.zeros([nsteps])
+cBmean12 = np.zeros([nsteps])
 t_vector = np.zeros([nsteps])
 
 # Coefficients for pressure equation
 gamma = np.zeros([nx+2,ny+2]) + hx*hy / (2*hx**2 + 2*hy**2)   # internal points
-gamma = gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
+gamma = gammaCoeff(gamma, hx,hy, nout_start,nout_end, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
 # Flags to recognize where is necessary to solve the equations
 # This flag is 1 in the cells that contain and obstacle and 0 in the others
@@ -165,25 +152,22 @@ flagv = np.zeros([nx+2, ny+1])          # v-cells corresponding to the obstacle
 flagp = np.zeros([nx+2, ny+2])          # p-cells corresponding to the obstacle
 
 # Set flag to 1 in obstacle cells
-flagu, flagv, flagp = flag(flagu,flagv,flagp, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
+flagu, flagv, flagp = flag(flagu,flagv,flagp, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-v[xe1:xs2, ys2:] = -v_in/10                   # Internal points: fixed velocity [m/s]
-u[xs10:, :] = v_in/10
-v = v_initialize(v, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10) # set u = 0 over obstacles
-vt = v
-ut = u
+'''u[:, :] = v_in/10                   # Internal points: fixed velocity [m/s]
+u = u_initialize(u, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)  # set u = 0 over obstacles
+ut = u'''
 
 # Immobilized cells initialized over obstacles
 cB[xs2-th:xs2, ys2:ye2] = cB0    # Obstacle 2
 cB[xs3-th:xs3, ys3:ye3] = cB0    # Obstacle 3
-cB[xs4-th:xs4, ys4:ye4] = cB0    # Obstacle 4
 cB[xs5-th:xs5, ys5:ye5] = cB0    # Obstacle 5
 cB[xs6-th:xs6, ys6:ye6] = cB0    # Obstacle 6
-cB[xs7-th:xs7, ys7:ye7] = cB0    # Obstacle 7
 cB[xs8-th:xs8, ys8:ye8] = cB0    # Obstacle 8
 cB[xs9-th:xs9, ys9:ye9] = cB0    # Obstacle 9
-cB[xs10-th:xs10, ys10:ye10] = cB0    # Obstacle 10
+cB[xs11-th:xs11, ys11:ye11] = cB0    # Obstacle 11
+cB[xs12-th:xs12, ys12:ye12] = cB0    # Obstacle 12
 
 ## -------------------------------------------------------------------------------------------- ##
 ##                                     SOLUTION OVER TIME                                       ##
@@ -202,26 +186,24 @@ for it in range(1, nsteps+1):
 
     # Boundary conditions (obstacles)
     uwall = 0
-    u, v = VelocityBCs(u, v, uwall, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
+    u, v = VelocityBCs(u, v, uwall, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
     # Over-writing inlet conditions
-    v[nin_start1:nin_end1+1, -1] = -v_in     # fixed inlet velocity (north)
-    v[nin_start2:nin_end2+1,  0] =  v_in_l   # fixed inlet velocity (north)
-    v[nin_start3:nin_end3+1, -1] = -v_in_l   # fixed inlet velocity (south)
+    v[nin_start1:nin_end1+1, -1] = -v_in     # fixed inlet velocity (west)
+    v[nin_start2:nin_end2+1 , 0] =  v_in
 
     # Over-writing outlet conditions
-    u[-1, nout_start:nout_end+1] = u[-2, nout_start:nout_end+1]   # zero-gradient outlet velocity
-    v[-1, nout_start:nout_end+1] = v[-2, nout_start:nout_end+1]   # zero-gradient outlet velocity
+    u[-1, nout_start-1:nout_end+1] = u[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
+    v[-1, nout_start-1:nout_end+1] = v[-2, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
     # Advection-diffusion equation (predictor)
     ut, vt = AdvectionDiffusion2D(ut, vt, u, v, nx, ny, hx, hy, dt, nu, g, flagu, flagv, method)
 
     # Update boundary conditions for temporary velocities
     vt[nin_start1:nin_end1+1, -1] = -v_in     # fixed inlet velocity (west)
-    vt[nin_start2:nin_end2+1,  0] =  v_in_l   # fixed inlet velocity (north)
-    vt[nin_start3:nin_end3+1, -1] = -v_in_l   # fixed inlet velocity (north)
-    ut[-1, nout_start:nout_end+1] = u[-1, nout_start:nout_end+1]   # zero-gradient outlet velocity
-    vt[-1, nout_start:nout_end+1] = v[-1, nout_start:nout_end+1]   # zero-gradient outlet velocity
+    vt[nin_start2:nin_end2+1 , 0] =  v_in
+    ut[-1, nout_start-1:nout_end+1] = u[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
+    vt[-1, nout_start-1:nout_end+1] = v[-1, nout_start-1:nout_end+1]   # zero-gradient outlet velocity
 
     # Pressure equation (Poisson)
     p, iter = Pressure_Poisson(p, ut, vt, gamma, nx, ny, hx, hy, dt, beta, max_iterations, max_error, flagp)
@@ -241,16 +223,14 @@ for it in range(1, nsteps+1):
     # 2. Transport of species and reaction                                             #
     #----------------------------------------------------------------------------------#
     # Impermeable walls
-    cO2 = SpeciesBCs(cO2, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
-    cG  = SpeciesBCs(cG, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
+    cO2 = SpeciesBCs(cO2, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
+    cG  = SpeciesBCs(cG, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
     # Inlet sections
     cO2 = InletConcentration(cO2, cO2in, nin_start1, nin_end1, 'north')
     cG  = InletConcentration(cG, cGin, nin_start1, nin_end1, 'north')
     cO2 = InletConcentration(cO2, cO2in, nin_start2, nin_end2, 'south')
     cG  = InletConcentration(cG, cGin, nin_start2, nin_end2, 'south')
-    cO2 = InletConcentration(cO2, cO2in, nin_start3, nin_end3, 'north')
-    cG  = InletConcentration(cG, cGin, nin_start3, nin_end3, 'north')
 
     # Advection-Diffusion equation
     cO2star = AdvDiffSpecies(cO2, u, v, dt, hx, hy, Gamma, nx, ny, flagp, method)
@@ -263,13 +243,12 @@ for it in range(1, nsteps+1):
     # Collecting cells mean values for graphical purposes
     cBmean2[it-1] = CellsMeanConcentration(cB, th, X2)   # (pay attention if cells are above or under the plate!!!)
     cBmean3[it-1] = CellsMeanConcentration(cB, th, X3)
-    cBmean4[it-1] = CellsMeanConcentration(cB, th, X4)
     cBmean5[it-1] = CellsMeanConcentration(cB, th, X5)
     cBmean6[it-1] = CellsMeanConcentration(cB, th, X6)
-    cBmean7[it-1] = CellsMeanConcentration(cB, th, X7)
     cBmean8[it-1] = CellsMeanConcentration(cB, th, X8)
     cBmean9[it-1] = CellsMeanConcentration(cB, th, X9)
-    cBmean10[it-1] = CellsMeanConcentration(cB, th, X10)
+    cBmean11[it-1] = CellsMeanConcentration(cB, th, X11)
+    cBmean12[it-1] = CellsMeanConcentration(cB, th, X12)
     
     # Collecting time values for graphical purposes
     t_vector[it-1] = t
@@ -288,8 +267,7 @@ Tau_wall = ShearStress(v, dR, nu, rhoL, nx, ny)
 # Field reconstruction
 uu   = node_interp(u, 'u', nx, ny, flagu)
 vv   = node_interp(v, 'v', nx, ny, flagv)
-pp   = node_interp(p, 'p', nx, ny, flagp)
-pp   = pp * rhoL
+pp   = node_interp(p, 'p', nx, ny, flagp) * rhoL
 tau  = node_interp(Tau_wall, 'v', nx, ny, flagv)
 ccO2 = node_interp(cO2, 'p', nx, ny, flagp)
 ccG  = node_interp(cG, 'p', nx, ny, flagp)
@@ -297,46 +275,44 @@ ccG  = node_interp(cG, 'p', nx, ny, flagp)
 # Interpolation of cells concentration needed for graphical purposes
 ccB[xs2-th:xs2, ys2:ye2] = cB[xs2-th+1:xs2+1, ys2+1:ye2+1]  # Obstacle 2
 ccB[xs3-th:xs3, ys3:ye3] = cB[xs3-th+1:xs3+1, ys3+1:ye3+1]  # Obstacle 3
-ccB[xs4-th:xs4, ys4:ye4] = cB[xs4-th+1:xs4+1, ys4+1:ye4+1]  # Obstacle 4
 ccB[xs5-th:xs5, ys5:ye5] = cB[xs5-th+1:xs5+1, ys5+1:ye5+1]  # Obstacle 5
 ccB[xs6-th:xs6, ys6:ye6] = cB[xs6-th+1:xs6+1, ys6+1:ye6+1]  # Obstacle 6
-ccB[xs7-th:xs7, ys7:ye7] = cB[xs7-th+1:xs7+1, ys7+1:ye7+1]  # Obstacle 7
 ccB[xs8-th:xs8, ys8:ye8] = cB[xs8-th+1:xs8+1, ys8+1:ye8+1]  # Obstacle 8
-ccB[xs9-th:xs9, ys9:ye9] = cB[xs9-th+1:xs9+1, ys9+1:ye9+1]  # Obstacle 7
-ccB[xs10-th:xs10, ys10:ye10] = cB[xs10-th+1:xs10+1, ys10+1:ye10+1]  # Obstacle 8
+ccB[xs9-th:xs9, ys9:ye9] = cB[xs9-th+1:xs9+1, ys9+1:ye9+1]  # Obstacle 9
+ccB[xs11-th:xs11, ys11:ye11] = cB[xs11-th+1:xs11+1, ys11+1:ye11+1]  # Obstacle 11
+ccB[xs12-th:xs12, ys12:ye12] = cB[xs12-th+1:xs12+1, ys12+1:ye12+1]  # Obstacle 12
 
 # Addition of obstacles for graphical purposes
-uu, vv, pp, tau, ccO2, ccB, ccG = Graphical_obstacles(uu, vv, pp, tau, ccO2, ccB, ccG, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10)
+uu, vv, pp, tau, ccO2, ccB, ccG = Graphical_obstacles(uu, vv, pp, tau, ccO2, ccB, ccG, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
 # Creating a grid
 xx,yy = np.meshgrid(x,y)
 
 # Plotting the results
 # Surface map: pressure
-PlotFunctions(xx, yy, pp, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'Delta Pressure [Pa]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, pp, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'Delta Pressure [Pa]', 'x [m]', 'y [m]')
 
 # Surface map: u-velocity
-PlotFunctions(xx, yy, uu, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'u - velocity [m/s]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, uu, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'u - velocity [m/s]', 'x [m]', 'y [m]')
 
 # Surface map: v-velocity
-PlotFunctions(xx, yy, vv, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'v - velocity [m/s]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, vv, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'v - velocity [m/s]', 'x [m]', 'y [m]')
 
 # Surface map: cO2
-PlotFunctions(xx, yy, ccO2, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'O2 concentration [mol/m3]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, ccO2, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'O2 concentration [mol/m3]', 'x [m]', 'y [m]')
 
 # Surface map: cG
-PlotFunctions(xx, yy, ccG, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'Glucose concentration [mol/m3]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, ccG, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'Glucose concentration [mol/m3]', 'x [m]', 'y [m]')
 
 # Surface map: cB
-PlotFunctions(xx, yy, ccB, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'Cells concentration [mol/m3]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, ccB, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'Cells concentration [mol/m3]', 'x [m]', 'y [m]')
 
 # Surface map: Tau
-PlotFunctions(xx, yy, tau, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'Shear stress [N/m2]', 'x [m]', 'y [m]')
+PlotFunctions(xx, yy, tau, x, y, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'Shear stress [N/m2]', 'x [m]', 'y [m]')
 
 # Streamlines
-Streamlines(x, y, xx, yy, uu, vv, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, Lx, Ly, 'Streamlines', 'x [m]', 'y [m]')
+Streamlines(x, y, xx, yy, uu, vv, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, Lx, Ly, 'Streamlines', 'x [m]', 'y [m]')
 
 # Mean values of cB
-MeanCellsPlot(t_vector, cBmean1, cBmean2, cBmean3, cBmean4, cBmean5, cBmean6, cBmean7, cBmean8, cBmean9, cBmean10, Time, np.max(cBmean2)*1.5)
-
+MeanCellsPlot(t_vector, cBmean2, cBmean3, cBmean5, cBmean6, cBmean8, cBmean9, cBmean11, cBmean12, Time, np.max(cBmean2)*1.5)
 plt.show()

@@ -16,12 +16,12 @@ rhoL = 1000.       # kg/m3
 
 Lx = 4.3           # m
 Ly = 1.2           # m
-nx = 800
-ny = 300
+nx = 700
+ny = 250
 nu = 1e-6          # m2/s  (dynamic viscosity of fluid)
 Gamma = 1e-5       # m2/s  (diffusion coefficient of O2 in water)
 u_in = 1e-3        # m/s   (inlet velocity)
-Time = 3600.       # s     (simulation time)
+Time = 1800.       # s     (simulation time)
 method = 'Upwind'  # Discretization method (CDS or Upwind)
 
 # Boundary conditions (no-slip)
@@ -42,7 +42,7 @@ K_G = 0.5           # mol/m3 (Monod const. of glucose)
 
 # Parameters for SOR/SUR (Poisson eq)
 max_iterations = 1000000
-beta = 0.4
+beta = 0.5
 max_error = 1e-6
 
 ## -------------------------------------------------------------------------------------------- ##
@@ -155,9 +155,9 @@ flagp = np.zeros([nx+2, ny+2])          # p-cells corresponding to the obstacle
 flagu, flagv, flagp = flag(flagu,flagv,flagp, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)
 
 # Initial conditions: set reasonable initial velocity value instead of initializing everything to zero
-u[:, :] = u_in/10                   # Internal points: fixed velocity [m/s]
+'''u[:, :] = u_in/10                   # Internal points: fixed velocity [m/s]
 u = u_initialize(u, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12)  # set u = 0 over obstacles
-ut = u
+ut = u'''
 
 # Immobilized cells initialized over obstacles
 cB[xs2-th:xs2, ys2:ye2] = cB0    # Obstacle 2

@@ -87,16 +87,15 @@ def Obstacles(x, y):
 
         return X_obst
 
-    n, m, p = 12, 100, 0.75
-    X_obst1 = defining_obstacles(x_obst1_start, x_obst1_end, y_obst1_start, y_obst1_end, y_obst2_start, y_obst2_end, x_obst3_start, n, m, p, 'south')
-    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, y_obst3_start, y_obst3_end, x_obst4_start, n, m, p, 'north')
-    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, y_obst4_start, y_obst4_end, x_obst5_start, n, m, p, 'south')
-    X_obst4 = defining_obstacles(x_obst4_start, x_obst4_end, y_obst4_start, y_obst4_end, y_obst5_start, y_obst5_end, x_obst6_start, n, m, p, 'north')
-    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, y_obst6_start, y_obst6_end, x_obst7_start, n, m, p, 'south')
-    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, y_obst7_start, y_obst7_end, x_obst8_start, n, m, p, 'north')
-    X_obst7 = defining_obstacles(x_obst7_start, x_obst7_end, y_obst7_start, y_obst7_end, y_obst8_start, y_obst8_end, x_obst9_start, n, m, p, 'south')
-    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, y_obst9_start, y_obst9_end, x_obst10_start, n, m, p, 'north')
-    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, y_obst10_start, y_obst10_end, x_obst10_end, n, m, p, 'south')
+    X_obst1 = defining_obstacles(x_obst1_start, x_obst1_end, y_obst1_start, y_obst1_end, y_obst2_start, y_obst2_end, x_obst3_start, 8, 80, 0.6, 'south')
+    X_obst2 = defining_obstacles(x_obst2_start, x_obst2_end, y_obst2_start, y_obst2_end, y_obst3_start, y_obst3_end, x_obst4_start, 8, 80, 0.6, 'north')
+    X_obst3 = defining_obstacles(x_obst3_start, x_obst3_end, y_obst3_start, y_obst3_end, y_obst4_start, y_obst4_end, x_obst5_start, 8, 80, 0.6, 'south')
+    X_obst4 = defining_obstacles(x_obst4_start, x_obst4_end, y_obst4_start, y_obst4_end, y_obst5_start, y_obst5_end, x_obst6_start, 8, 80, 0.6, 'north')
+    X_obst5 = defining_obstacles(x_obst5_start, x_obst5_end, y_obst5_start, y_obst5_end, y_obst6_start, y_obst6_end, x_obst7_start, 8, 80, 0.6, 'south')
+    X_obst6 = defining_obstacles(x_obst6_start, x_obst6_end, y_obst6_start, y_obst6_end, y_obst7_start, y_obst7_end, x_obst8_start, 8, 80, 0.6, 'north')
+    X_obst7 = defining_obstacles(x_obst7_start, x_obst7_end, y_obst7_start, y_obst7_end, y_obst8_start, y_obst8_end, x_obst9_start, 8, 80, 0.6, 'south')
+    X_obst8 = defining_obstacles(x_obst8_start, x_obst8_end, y_obst8_start, y_obst8_end, y_obst9_start, y_obst9_end, x_obst10_start, 8, 80, 0.6, 'north')
+    X_obst9 = defining_obstacles(x_obst9_start, x_obst9_end, y_obst9_start, y_obst9_end, y_obst10_start, y_obst10_end, x_obst10_end, 8, 80, 0.6, 'south')
     X_obst10 = [x_obst10_start, x_obst10_end, y_obst10_start, y_obst10_end]
 
     # Obstacles definition: rectangle with base xs:xe and height ys:ye
